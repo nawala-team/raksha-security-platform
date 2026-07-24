@@ -1,4 +1,4 @@
-<p align="center">
+﻿<p align="center">
   <h1 align="center">🔱 Raksha Security Platform</h1>
   <p align="center">
     <em>Comprehensive infrastructure security monitoring and compliance platform</em>
@@ -266,7 +266,8 @@ irm https://your-portal/api/v1/agent/install.ps1 | iex
 - [API Reference](docs/API.md) — REST and GraphQL API documentation
 - [Installation Guide](docs/INSTALLATION.md) — Detailed setup instructions
 - [Agent Enrollment](docs/AGENT-ENROLLMENT.md) — Agent setup and enrollment flow
-- [Threat Intelligence](docs/THREAT-INTELLIGENCE.md) — IOC feeds and correlation
+- [Agent Enrollment](docs/AGENT-ENROLLMENT.md) - Agent setup and enrollment flow
+- [Branching Strategy](docs/BRANCHING.md) - Git flow and branch protection rules
 - [Security Standards](docs/SECURITY-STANDARDS.md) — Supported compliance frameworks
 - [Security Testing](docs/SECURITY-TESTING.md) — Penetration testing playbook
 - [Bug Bounty](docs/BUG-BOUNTY.md) — Community recognition program
