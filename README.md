@@ -56,13 +56,31 @@ Part of the [Nawala Ecosystem](https://github.com/dansiapa/nawala-gateway-platfo
     <td align="center"><strong>🤖 ML Threat Detection</strong><br/><sub>Isolation Forest, CNN, LSTM models for anomaly and prediction</sub></td>
     <td align="center"><strong>🌍 Threat Intelligence</strong><br/><sub>Auto-syncing IOC feeds from CISA, MITRE, Abuse.ch, OTX, NVD</sub></td>
     <td align="center"><strong>📝 Audit Trail</strong><br/><sub>Immutable logging with SHA3-256 cryptographic verification</sub></td>
-    <td align="center"><strong>🔔 Real-time Alerts</strong><br/><sub>WebSocket live alerts + Email, Slack, Webhook notifications</sub></td>
+    <td align="center"><strong>🔔 Real-time Alerts</strong><br/><sub>WebSocket + Email + Telegram + Webhook notifications</sub></td>
   </tr>
   <tr>
     <td align="center"><strong>👥 User Management</strong><br/><sub>RBAC with Admin, Analyst, Operator, Viewer roles + MFA</sub></td>
     <td align="center"><strong>🕵️ Agent System</strong><br/><sub>Cross-platform agents with mTLS enrollment and FIM</sub></td>
-    <td align="center"><strong>🛡️ Setup Wizard</strong><br/><sub>Guided first-run installation with system checks</sub></td>
+    <td align="center"><strong>📁 File Integrity</strong><br/><sub>Real-time file change detection, hash verification, policy rules</sub></td>
     <td align="center"><strong>📊 Dashboard</strong><br/><sub>Interactive security posture overview with live metrics</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>🚨 Incident Response</strong><br/><sub>YAML playbooks, lifecycle management, auto-escalation, timeline</sub></td>
+    <td align="center"><strong>🔍 Vulnerability Scanner</strong><br/><sub>NVD/CVE sync, CVSS scoring, package parser for 6+ ecosystems</sub></td>
+    <td align="center"><strong>🎯 Attack Surface</strong><br/><sub>Subdomain enumeration, port scanning, exposure scoring</sub></td>
+    <td align="center"><strong>🐳 Container Security</strong><br/><sub>K8s admission webhook, image scanning, runtime alerts</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>🏛️ GRC Module</strong><br/><sub>Risk register, policy management, control mapping to frameworks</sub></td>
+    <td align="center"><strong>🕸️ Dark Web Monitor</strong><br/><sub>Credential leak detection, paste monitoring, domain watchlist</sub></td>
+    <td align="center"><strong>🍯 Honeypots</strong><br/><sub>SSH, HTTP, SMTP, MySQL deception with zero false-positive alerts</sub></td>
+    <td align="center"><strong>💾 Backup Verification</strong><br/><sub>Integrity checks, freshness alerts, RPO/RTO compliance</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>🔗 SIEM Integration</strong><br/><sub>Splunk, Elasticsearch, Graylog, Wazuh with CEF/LEEF/Syslog</sub></td>
+    <td align="center"><strong>🏢 Multi-Tenancy</strong><br/><sub>Full tenant isolation, per-tenant RBAC, superadmin management</sub></td>
+    <td align="center"><strong>🔎 Threat Hunting</strong><br/><sub>RQL query language, saved queries, scheduled hunts</sub></td>
+    <td align="center"><strong>🛡️ API Gateway</strong><br/><sub>WAF, rate limiting, bot detection, payload inspection</sub></td>
   </tr>
 </table>
 
@@ -233,23 +251,39 @@ export RAKSHA_SERVER__PORT=9090
 raksha-security-platform/
 +-- apps/
 |   +-- portal/          # Rust API server (Axum)
-|   +-- web/             # React frontend (Next.js)
+|   +-- web/             # React frontend (Next.js 14)
 |   +-- agent/           # Cross-platform agent (Rust)
 |   +-- cli/             # CLI tool (Rust)
-|   +-- ml-engine/       # ML models (Python)
 +-- crates/
-|   +-- raksha-core/     # Shared types and utilities
-|   +-- raksha-auth/     # Authentication and authorization
-|   +-- raksha-alert/    # Alert engine
-|   +-- raksha-audit/    # Audit trail
-|   +-- raksha-compliance/ # Compliance checks
-|   +-- raksha-ml/       # ML integration
-|   +-- raksha-threat-intel/ # Threat intelligence
-+-- configs/             # Compliance rules and feed configs
-+-- deploy/              # Docker, Helm, packages
+|   +-- raksha-core/     # Shared types, tenant, hunting engine (RQL)
+|   +-- raksha-auth/     # Authentication, RBAC, session, mTLS
+|   +-- raksha-alert/    # Alert engine + notifications (Email/Telegram)
+|   +-- raksha-audit/    # Audit trail with crypto proofs
+|   +-- raksha-compliance/ # Compliance framework checks
+|   +-- raksha-ml/       # ML integration bridge
+|   +-- raksha-threat-intel/ # Threat intelligence feeds
+|   +-- raksha-siem/     # SIEM integration (Splunk/Elastic/Graylog/Wazuh)
+|   +-- raksha-incident/ # Incident response & playbook engine
+|   +-- raksha-grc/      # Governance, Risk & Compliance
++-- ml/                  # Python ML/AI service (FastAPI)
+|   +-- src/anomaly/     # Anomaly detection models
+|   +-- src/scanner/     # Vulnerability scanner (NVD/CVE)
+|   +-- src/asm/         # Attack Surface Management
+|   +-- src/darkweb/     # Dark web monitoring
++-- configs/             # All configuration files
+|   +-- playbooks/       # Incident response playbooks (YAML)
+|   +-- deception/       # Honeypot configurations
+|   +-- backup/          # Backup verification policies
+|   +-- siem/            # SIEM integration defaults
+|   +-- container-security/ # Container security policies
++-- deploy/              # Deployment infrastructure
+|   +-- docker/          # Dockerfiles
+|   +-- k8s/helm/        # Helm chart for Kubernetes
+|   +-- k8s/admission-webhook/ # K8s admission controller (Go)
+|   +-- gateway/         # Nginx WAF + reverse proxy
+|   +-- fluentd/         # Log forwarding
++-- migrations/          # PostgreSQL migrations (SQLx)
 +-- docs/                # Documentation
-+-- migrations/          # Database migrations
-+-- ml/                  # ML training scripts and models
 +-- scripts/             # Install scripts
 +-- tests/               # E2E, performance, security tests
 ```
