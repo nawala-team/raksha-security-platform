@@ -22,6 +22,12 @@ import {
   Siren,
   Radar,
   Container,
+  Crosshair,
+  ShieldCheck,
+  Eye,
+  HardDrive,
+  Building2,
+  Honeycomb,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -36,12 +42,18 @@ const navigation = [
   { name: "Database", href: "/dashboard/database", icon: Database },
   { name: "FIM", href: "/dashboard/fim", icon: FileSearch },
   { name: "Agents", href: "/dashboard/agents", icon: Bot },
-  { name: "Threat Intel", href: "/dashboard/threat-intel", icon: Globe },
-  { name: "Attack Surface", href: "/dashboard/attack-surface", icon: Radar },
   { name: "Vulnerabilities", href: "/dashboard/vulnerabilities", icon: Bug },
+  { name: "Attack Surface", href: "/dashboard/attack-surface", icon: Radar },
+  { name: "Threat Intel", href: "/dashboard/threat-intel", icon: Globe },
+  { name: "Hunting", href: "/dashboard/hunting", icon: Crosshair },
   { name: "Compliance", href: "/dashboard/compliance", icon: ClipboardCheck },
+  { name: "GRC", href: "/dashboard/grc", icon: ShieldCheck },
+  { name: "Dark Web", href: "/dashboard/darkweb", icon: Eye },
+  { name: "Honeypots", href: "/dashboard/honeypots", icon: Honeycomb },
+  { name: "Backups", href: "/dashboard/backups", icon: HardDrive },
   { name: "Audit Trail", href: "/dashboard/audit", icon: ScrollText },
   { name: "Users", href: "/dashboard/users", icon: Users },
+  { name: "Tenants", href: "/dashboard/tenants", icon: Building2 },
   { name: "Documents", href: "/dashboard/documents", icon: FileText },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ];

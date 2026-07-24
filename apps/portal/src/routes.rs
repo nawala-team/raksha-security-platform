@@ -13,7 +13,7 @@ use tower_http::{
 };
 
 use crate::handlers;
-use crate::middleware::{auth_layer, rate_limit_layer};
+use crate::middleware::{auth_layer, rate_limit_layer, tenant_context_layer};
 use crate::state::AppState;
 
 pub fn build_router(state: AppState) -> Router {
@@ -43,6 +43,11 @@ pub fn build_router(state: AppState) -> Router {
         .nest("/audit", handlers::audit::routes())
         .nest("/threat-intel", handlers::threat_intel::routes())
         .nest("/databases", handlers::database::routes())
+        .nest("/tenants", handlers::tenants::routes())
+        .layer(axum_middleware::from_fn_with_state(
+            state.clone(),
+            tenant_context_layer,
+        ))
         .layer(axum_middleware::from_fn_with_state(
             state.clone(),
             auth_layer,

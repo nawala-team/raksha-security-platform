@@ -6,6 +6,7 @@ pub mod compliance;
 pub mod database;
 pub mod enrollment;
 pub mod health;
+pub mod tenants;
 pub mod threat_intel;
 pub mod users;
 pub mod websocket;

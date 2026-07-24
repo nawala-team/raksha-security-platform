@@ -1,0 +1,278 @@
+# =============================================================================
+# Raksha Security Platform - Bot Signatures Database
+# =============================================================================
+# Known malicious bot user-agents, scanner signatures, and rate limit profiles.
+
+scanners:
+  # Network/port scanners
+  - name: Nmap
+    category: network_scanner
+    user_agents:
+      - "Nmap Scripting Engine"
+      - "Mozilla/5.0 (compatible; Nmap Scripting Engine"
+    action: block
+    severity: high
+
+  - name: Masscan
+    category: network_scanner
+    user_agents:
+      - "masscan"
+      - "masscan/1.*"
+    action: block
+    severity: high
+
+  - name: Zgrab
+    category: network_scanner
+    user_agents:
+      - "zgrab"
+      - "zgrab2"
+    action: block
+    severity: high
+
+  # Vulnerability scanners
+  - name: Nikto
+    category: vuln_scanner
+    user_agents:
+      - "Nikto"
+      - "Mozilla/5.00 (Nikto"
+    action: block
+    severity: critical
+
+  - name: SQLMap
+    category: vuln_scanner
+    user_agents:
+      - "sqlmap"
+      - "sqlmap/1.*"
+    action: block
+    severity: critical
+
+  - name: Nuclei
+    category: vuln_scanner
+    user_agents:
+      - "Nuclei"
+      - "nuclei"
+    action: block
+    severity: critical
+
+  - name: WPScan
+    category: vuln_scanner
+    user_agents:
+      - "WPScan"
+      - "wpscan"
+    action: block
+    severity: high
+
+  - name: Acunetix
+    category: vuln_scanner
+    user_agents:
+      - "Acunetix"
+      - "acunetix-wvs"
+    action: block
+    severity: critical
+
+  - name: Nessus
+    category: vuln_scanner
+    user_agents:
+      - "Nessus"
+    action: block
+    severity: high
+
+  - name: OpenVAS
+    category: vuln_scanner
+    user_agents:
+      - "OpenVAS"
+    action: block
+    severity: high
+
+  # Directory/path brute-forcers
+  - name: DirBuster
+    category: path_scanner
+    user_agents:
+      - "DirBuster"
+    action: block
+    severity: high
+
+  - name: GoBuster
+    category: path_scanner
+    user_agents:
+      - "gobuster"
+    action: block
+    severity: high
+
+  - name: Feroxbuster
+    category: path_scanner
+    user_agents:
+      - "feroxbuster"
+    action: block
+    severity: high
+
+  - name: FFUF
+    category: path_scanner
+    user_agents:
+      - "Fuzz Faster U Fool"
+      - "ffuf"
+    action: block
+    severity: high
+
+  # Exploitation tools
+  - name: Metasploit
+    category: exploitation
+    user_agents:
+      - "Metasploit"
+    action: block
+    severity: critical
+
+  - name: Hydra
+    category: exploitation
+    user_agents:
+      - "Hydra"
+    action: block
+    severity: critical
+
+  - name: BurpSuite
+    category: exploitation
+    user_agents:
+      - "burp"
+      - "Burp Suite"
+    action: block
+    severity: high
+
+  # Aggressive crawlers
+  - name: SemrushBot
+    category: aggressive_crawler
+    user_agents:
+      - "SemrushBot"
+    action: rate_limit
+    severity: low
+
+  - name: AhrefsBot
+    category: aggressive_crawler
+    user_agents:
+      - "AhrefsBot"
+    action: rate_limit
+    severity: low
+
+  # Suspicious generic clients
+  - name: EmptyUserAgent
+    category: suspicious
+    user_agents:
+      - ""
+    action: rate_limit
+    severity: medium
+
+  - name: GenericPythonBot
+    category: suspicious
+    user_agents:
+      - "python-requests"
+      - "Python-urllib"
+    action: rate_limit
+    severity: low
+
+  - name: LibHTTP
+    category: suspicious
+    user_agents:
+      - "libwww-perl"
+      - "lwp-trivial"
+    action: rate_limit
+    severity: medium
+
+# =============================================================================
+# Rate limit profiles per bot category
+# =============================================================================
+rate_limit_profiles:
+  block:
+    action: deny
+    status_code: 403
+    log_level: warn
+
+  rate_limit:
+    aggressive_crawler:
+      requests_per_minute: 10
+      burst: 5
+      delay_ms: 1000
+      action_on_exceed: block_temporary
+      block_duration_seconds: 3600
+
+    suspicious:
+      requests_per_minute: 30
+      burst: 10
+      delay_ms: 500
+      action_on_exceed: block_temporary
+      block_duration_seconds: 600
+
+    generic_bot:
+      requests_per_minute: 60
+      burst: 20
+      delay_ms: 0
+      action_on_exceed: throttle
+      block_duration_seconds: 300
+
+# =============================================================================
+# Allowlisted bots (legitimate services)
+# =============================================================================
+allowlist:
+  - name: Googlebot
+    user_agents:
+      - "Googlebot"
+    verify_method: dns_reverse_lookup
+    verify_domain: "*.googlebot.com"
+
+  - name: Bingbot
+    user_agents:
+      - "bingbot"
+    verify_method: dns_reverse_lookup
+    verify_domain: "*.search.msn.com"
+
+  - name: UptimeRobot
+    user_agents:
+      - "UptimeRobot"
+    verify_method: ip_range
+    allowed_ips:
+      - "216.144.250.0/24"
+      - "69.162.124.0/24"
+
+  - name: RakshaAgent
+    user_agents:
+      - "RakshaAgent/*"
+    verify_method: api_key_header
+    header: "X-Raksha-Agent-Key"
+
+# =============================================================================
+# Behavioral detection patterns
+# =============================================================================
+behavioral_rules:
+  - name: rapid_path_enumeration
+    description: "Many 404s in short time indicates path scanning"
+    trigger:
+      error_404_count: 20
+      window_seconds: 60
+    action: block_temporary
+    block_duration_seconds: 1800
+    severity: high
+
+  - name: credential_stuffing
+    description: "Many failed auth attempts"
+    trigger:
+      auth_failure_count: 10
+      window_seconds: 300
+    action: block_temporary
+    block_duration_seconds: 3600
+    severity: critical
+
+  - name: api_abuse
+    description: "Excessive API calls from single source"
+    trigger:
+      request_count: 1000
+      window_seconds: 60
+    action: throttle
+    throttle_to_rpm: 30
+    severity: medium
+
+  - name: payload_probing
+    description: "Multiple WAF rule triggers from same IP"
+    trigger:
+      waf_block_count: 5
+      window_seconds: 300
+    action: block_temporary
+    block_duration_seconds: 7200
+    severity: critical

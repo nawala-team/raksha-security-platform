@@ -1,0 +1,74 @@
+# Raksha Security Platform - Deception Technology Configuration
+# ================================================================
+# Honeypot services that detect unauthorized access by presenting
+# fake services. ANY interaction with these decoys is inherently
+# suspicious and triggers immediate alerts.
+#
+# IMPORTANT: Bind honeypots to unused ports that legitimate services
+# do not occupy. Ensure firewall rules allow inbound traffic to these
+# ports from the network segments you want to monitor.
+
+enabled: true
+
+honeypots:
+  # ─── SSH Honeypot ─────────────────────────────────────────────
+  # Fake OpenSSH server. Captures credential brute-force attempts.
+  - name: "ssh-trap-01"
+    type: ssh
+    bind_addr: "0.0.0.0"
+    port: 2222
+    alert_severity: critical
+    banner: "SSH-2.0-OpenSSH_8.9p1 Ubuntu-3ubuntu0.6"
+    options: {}
+
+  # ─── HTTP Honeypot ────────────────────────────────────────────
+  # Fake admin panel. Captures web scanners and credential stuffing.
+  - name: "http-admin-trap"
+    type: http
+    bind_addr: "0.0.0.0"
+    port: 8080
+    alert_severity: high
+    banner: ""
+    options:
+      server_header: "Apache/2.4.52 (Ubuntu)"
+
+  # ─── HTTP Honeypot (alt) ──────────────────────────────────────
+  # Second HTTP honeypot on common alternative port.
+  - name: "http-wp-trap"
+    type: http
+    bind_addr: "0.0.0.0"
+    port: 8443
+    alert_severity: high
+    banner: ""
+    options:
+      server_header: "nginx/1.24.0"
+
+  # ─── SMTP Honeypot ───────────────────────────────────────────
+  # Fake mail server. Captures spam relay and phishing attempts.
+  - name: "smtp-trap-01"
+    type: smtp
+    bind_addr: "0.0.0.0"
+    port: 2525
+    alert_severity: critical
+    banner: "220 mail.internal.corp ESMTP Postfix (Ubuntu)"
+    options: {}
+
+  # ─── SMTP Honeypot (submission) ──────────────────────────────
+  - name: "smtp-submission-trap"
+    type: smtp
+    bind_addr: "0.0.0.0"
+    port: 5587
+    alert_severity: high
+    banner: "220 smtp.internal.corp ESMTP ready"
+    options: {}
+
+  # ─── MySQL Honeypot ──────────────────────────────────────────
+  # Fake database server. Captures credential harvesting and
+  # SQL injection tool probes.
+  - name: "mysql-trap-01"
+    type: mysql
+    bind_addr: "0.0.0.0"
+    port: 3307
+    alert_severity: critical
+    banner: "5.7.42-0ubuntu0.18.04.1"
+    options: {}

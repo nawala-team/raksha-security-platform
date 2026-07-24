@@ -1,0 +1,161 @@
+# =============================================================================
+# Raksha Security Platform - Backup Verification Policies
+# =============================================================================
+# Defines expected backup schedules, retention, and RPO/RTO targets.
+
+defaults:
+  expected_frequency_hours: 24
+  max_age_hours: 48
+  min_retention_count: 7
+  rpo_hours: 24
+  rto_hours: 4
+  verify_checksums: true
+
+extra_search_paths:
+  - /var/backups
+  - /backup
+  - /opt/backups
+  - /srv/backups
+
+policies:
+  - name: postgres_production
+    description: "Production PostgreSQL daily backups"
+    backup_type: pg_dump
+    paths:
+      - /var/backups/postgresql
+      - /backup/postgres
+    file_pattern: "pg_dump_prod_*.sql.gz"
+    expected_frequency_hours: 24
+    max_age_hours: 36
+    min_retention_count: 7
+    rpo_hours: 24
+    rto_hours: 2
+    alert_thresholds:
+      warning_age_hours: 28
+      critical_age_hours: 48
+      min_size_bytes: 1048576
+
+  - name: postgres_staging
+    description: "Staging PostgreSQL weekly backups"
+    backup_type: pg_dump
+    paths:
+      - /var/backups/postgresql/staging
+    file_pattern: "pg_dump_staging_*.sql.gz"
+    expected_frequency_hours: 168
+    max_age_hours: 192
+    min_retention_count: 4
+    rpo_hours: 168
+    rto_hours: 8
+    alert_thresholds:
+      warning_age_hours: 180
+      critical_age_hours: 336
+
+  - name: mysql_production
+    description: "Production MySQL daily backups"
+    backup_type: mysqldump
+    paths:
+      - /var/backups/mysql
+      - /backup/mysql
+    file_pattern: "mysqldump_prod_*.sql.gz"
+    expected_frequency_hours: 24
+    max_age_hours: 36
+    min_retention_count: 7
+    rpo_hours: 24
+    rto_hours: 2
+    alert_thresholds:
+      warning_age_hours: 28
+      critical_age_hours: 48
+      min_size_bytes: 524288
+
+  - name: mongodb_production
+    description: "Production MongoDB daily backups"
+    backup_type: mongodump
+    paths:
+      - /var/backups/mongodb
+      - /backup/mongo
+    file_pattern: "mongodump_prod_*"
+    expected_frequency_hours: 24
+    max_age_hours: 36
+    min_retention_count: 7
+    rpo_hours: 24
+    rto_hours: 4
+    alert_thresholds:
+      warning_age_hours: 28
+      critical_age_hours: 48
+
+  - name: config_backups
+    description: "Configuration file backups"
+    backup_type: file_system
+    paths:
+      - /var/backups/config
+      - /backup/etc
+    file_pattern: "etc_backup_*.tar.gz"
+    expected_frequency_hours: 24
+    max_age_hours: 48
+    min_retention_count: 30
+    rpo_hours: 24
+    rto_hours: 1
+    alert_thresholds:
+      warning_age_hours: 30
+      critical_age_hours: 72
+
+  - name: application_data
+    description: "Application data directory backups"
+    backup_type: file_system
+    paths:
+      - /backup/app-data
+      - /srv/backups/application
+    file_pattern: "app_data_*.tar.gz"
+    expected_frequency_hours: 12
+    max_age_hours: 24
+    min_retention_count: 14
+    rpo_hours: 12
+    rto_hours: 2
+    alert_thresholds:
+      warning_age_hours: 14
+      critical_age_hours: 36
+      min_size_bytes: 10485760
+
+server_overrides:
+  - match:
+      hostname: "db-primary-*"
+      tags: ["tier:critical"]
+    overrides:
+      rpo_hours: 4
+      expected_frequency_hours: 4
+      rto_hours: 1
+      alert_thresholds:
+        warning_age_hours: 5
+        critical_age_hours: 8
+
+  - match:
+      hostname: "db-replica-*"
+    overrides:
+      rpo_hours: 24
+      expected_frequency_hours: 24
+      rto_hours: 4
+
+  - match:
+      tags: ["env:development"]
+    overrides:
+      rpo_hours: 168
+      expected_frequency_hours: 168
+      min_retention_count: 2
+
+notifications:
+  channels:
+    - type: webhook
+      url: "${RAKSHA_PORTAL_URL}/api/v1/alerts/backup"
+      events: [rpo_violation, integrity_failure, retention_warning]
+
+    - type: email
+      recipients:
+        - ops-team@example.com
+      events: [rpo_violation, integrity_failure]
+      throttle_minutes: 60
+
+    - type: slack
+      webhook_url: "${SLACK_OPS_WEBHOOK}"
+      channel: "#backup-alerts"
+      events: [rpo_violation, integrity_failure, retention_warning]
+      throttle_minutes: 30

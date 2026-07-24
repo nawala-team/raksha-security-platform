@@ -1,5 +1,6 @@
 mod config;
 mod collector;
+mod deception;
 mod reporter;
 mod updater;
 
@@ -11,7 +12,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use sysinfo::System;
 use tokio::sync::RwLock;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -278,9 +279,31 @@ async fn run_agent() {
         }));
     }
 
+    // Deception (Honeypot) module
+    let deception_config = match deception::HoneypotManager::load_default_config() {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            warn!("Failed to load deception config, module disabled: {e}");
+            deception::DeceptionConfig {
+                enabled: false,
+                honeypots: Vec::new(),
+            }
+        }
+    };
+
+    let mut honeypot_manager = deception::HoneypotManager::new(
+        deception_config,
+        reporter.clone(),
+        config.agent_id.clone(),
+        config.hostname.clone(),
+    );
+    honeypot_manager.start().await;
+
     info!("All collectors started. Agent is running.");
     shutdown_signal().await;
     info!("Shutdown signal received. Stopping agent...");
+
+    honeypot_manager.stop().await;
 
     for handle in handles {
         handle.abort();

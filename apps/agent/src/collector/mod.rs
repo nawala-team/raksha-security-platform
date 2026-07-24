@@ -2,6 +2,7 @@ pub mod server;
 pub mod network;
 pub mod process;
 pub mod filesystem;
+pub mod backup;
 
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
@@ -23,6 +24,7 @@ pub enum MetricCategory {
     Network,
     Process,
     FileIntegrity,
+    Backup,
 }
 
 /// Alert severity levels.

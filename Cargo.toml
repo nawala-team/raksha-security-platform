@@ -13,6 +13,7 @@ members = [
     "crates/raksha-threat-intel",
     "crates/raksha-siem",
     "crates/raksha-incident",
+    "crates/raksha-grc",
 ]
 
 [workspace.package]
@@ -79,3 +80,4 @@ raksha-audit = { path = "crates/raksha-audit" }
 raksha-threat-intel = { path = "crates/raksha-threat-intel" }
 raksha-siem = { path = "crates/raksha-siem" }
 raksha-incident = { path = "crates/raksha-incident" }
+raksha-grc = { path = "crates/raksha-grc" }

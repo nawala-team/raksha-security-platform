@@ -1,3 +1,5 @@
+pub mod tenant;
+
 use axum::{
     body::Body,
     extract::{Request, State},
@@ -8,6 +10,8 @@ use raksha_auth::middleware::auth_middleware;
 use raksha_core::error::AppError;
 
 use crate::state::AppState;
+
+pub use tenant::tenant_context_layer;
 
 /// Authentication middleware layer
 pub async fn auth_layer(

@@ -1,0 +1,156 @@
+# =============================================================================
+# Raksha Security Platform - API Security Gateway
+# =============================================================================
+# Nginx with ModSecurity WAF, custom configs, and health check.
+
+# Stage 1: Build ModSecurity
+FROM debian:bookworm-slim AS modsec-build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    curl \
+    git \
+    libcurl4-openssl-dev \
+    libgeoip-dev \
+    liblmdb-dev \
+    libpcre3-dev \
+    libssl-dev \
+    libtool \
+    libxml2-dev \
+    libyajl-dev \
+    pkg-config \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build libmodsecurity
+WORKDIR /build
+RUN git clone --depth 1 --branch v3.0.12 https://github.com/owasp-modsecurity/ModSecurity.git && \
+    cd ModSecurity && \
+    git submodule init && \
+    git submodule update && \
+    ./build.sh && \
+    ./configure --with-lmdb && \
+    make -j$(nproc) && \
+    make install
+
+# Stage 2: Build Nginx with ModSecurity connector
+FROM debian:bookworm-slim AS nginx-build
+
+COPY --from=modsec-build /usr/local/modsecurity /usr/local/modsecurity
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    curl \
+    git \
+    libcurl4-openssl-dev \
+    libgeoip-dev \
+    liblmdb-dev \
+    libpcre3-dev \
+    libssl-dev \
+    libxml2-dev \
+    libyajl-dev \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG NGINX_VERSION=1.26.2
+
+WORKDIR /build
+RUN curl -fsSL https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz | tar xz && \
+    git clone --depth 1 https://github.com/owasp-modsecurity/ModSecurity-nginx.git
+
+RUN cd nginx-${NGINX_VERSION} && \
+    ./configure \
+        --prefix=/etc/nginx \
+        --sbin-path=/usr/sbin/nginx \
+        --modules-path=/usr/lib/nginx/modules \
+        --conf-path=/etc/nginx/nginx.conf \
+        --error-log-path=/var/log/nginx/error.log \
+        --http-log-path=/var/log/nginx/access.log \
+        --pid-path=/var/run/nginx.pid \
+        --with-http_ssl_module \
+        --with-http_v2_module \
+        --with-http_realip_module \
+        --with-http_gzip_static_module \
+        --with-http_stub_status_module \
+        --with-http_auth_request_module \
+        --with-threads \
+        --with-stream \
+        --with-stream_ssl_module \
+        --add-dynamic-module=../ModSecurity-nginx \
+        --with-ld-opt="-Wl,-rpath,/usr/local/modsecurity/lib" && \
+    make -j$(nproc) && \
+    make install
+
+# Stage 3: Production image
+FROM debian:bookworm-slim
+
+LABEL maintainer="Raksha Security Platform <security@raksha.dev>"
+LABEL description="API Security Gateway with Nginx + ModSecurity WAF"
+LABEL version="1.0.0"
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    libcurl4 \
+    libgeoip1 \
+    liblmdb0 \
+    libpcre3 \
+    libssl3 \
+    libxml2 \
+    libyajl2 \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /var/log/nginx /var/log/modsec /tmp/modsec/tmp /tmp/modsec/data \
+    && mkdir -p /etc/nginx/ssl /etc/nginx/modsec /var/www/certbot
+
+# Copy Nginx binary and modules
+COPY --from=nginx-build /usr/sbin/nginx /usr/sbin/nginx
+COPY --from=nginx-build /etc/nginx /etc/nginx
+COPY --from=nginx-build /usr/lib/nginx/modules /usr/lib/nginx/modules
+
+# Copy ModSecurity library
+COPY --from=modsec-build /usr/local/modsecurity/lib /usr/local/modsecurity/lib
+
+# Download OWASP CRS
+ARG CRS_VERSION=4.4.0
+RUN curl -fsSL https://github.com/coreruleset/coreruleset/archive/refs/tags/v${CRS_VERSION}.tar.gz | tar xz -C /tmp && \
+    mv /tmp/coreruleset-${CRS_VERSION}/rules /etc/nginx/modsec/crs-rules && \
+    mv /tmp/coreruleset-${CRS_VERSION}/crs-setup.conf.example /etc/nginx/modsec/crs-setup.conf && \
+    rm -rf /tmp/coreruleset-${CRS_VERSION}
+
+# Copy custom configurations
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY waf-rules.conf /etc/nginx/modsec/custom-rules.conf
+
+# Create ModSecurity main config
+RUN echo 'Include /etc/nginx/modsec/crs-setup.conf' > /etc/nginx/modsec/main.conf && \
+    echo 'Include /etc/nginx/modsec/custom-rules.conf' >> /etc/nginx/modsec/main.conf && \
+    echo 'Include /etc/nginx/modsec/crs-rules/*.conf' >> /etc/nginx/modsec/main.conf
+
+# Generate self-signed cert for development (override in production)
+RUN curl -fsSL https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh -o /usr/local/bin/wait-for-it && \
+    chmod +x /usr/local/bin/wait-for-it && \
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout /etc/nginx/ssl/privkey.pem \
+        -out /etc/nginx/ssl/fullchain.pem \
+        -subj "/CN=raksha-gateway/O=Raksha Security/C=US" && \
+    cp /etc/nginx/ssl/fullchain.pem /etc/nginx/ssl/chain.pem
+
+# Set library path
+ENV LD_LIBRARY_PATH=/usr/local/modsecurity/lib
+
+# Create non-root user
+RUN groupadd -r nginx && useradd -r -g nginx -d /var/cache/nginx -s /sbin/nologin nginx && \
+    chown -R nginx:nginx /var/log/nginx /var/log/modsec /tmp/modsec /var/cache/nginx
+
+EXPOSE 80 443
+
+# Health check
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -sf http://localhost/health || exit 1
+
+# Nginx runs as root to bind to ports 80/443, workers drop to nginx user
+STOPSIGNAL SIGQUIT
+CMD ["nginx", "-g", "daemon off;"]

@@ -16,6 +16,7 @@ import structlog
 from .models import AnomalyDetector, AnomalyPrediction
 from .scanner.routes import router as scanner_router
 from .asm.routes import router as asm_router
+from .darkweb.routes import router as darkweb_router
 
 logger = structlog.get_logger()
 
@@ -50,6 +51,7 @@ app.add_middleware(
 
 app.include_router(scanner_router)
 app.include_router(asm_router)
+app.include_router(darkweb_router)
 
 
 class PredictRequest(BaseModel):
