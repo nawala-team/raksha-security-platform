@@ -11,8 +11,20 @@ use uuid::Uuid;
 /// Default certificate validity: 30 days
 const CERT_VALIDITY_DAYS: i64 = 30;
 
+/// Minimum certificate validity: 1 day
+const MIN_CERT_VALIDITY_DAYS: i64 = 1;
+
+/// Maximum certificate validity: 90 days (short-lived for security)
+const MAX_CERT_VALIDITY_DAYS: i64 = 90;
+
 /// Certificate rotation trigger: 7 days before expiry
 const ROTATION_THRESHOLD_DAYS: i64 = 7;
+
+/// Maximum SAN entries per certificate
+const MAX_SAN_ENTRIES: usize = 10;
+
+/// Maximum hostname length (RFC 1035)
+const MAX_HOSTNAME_LEN: usize = 253;
 
 /// Agent certificate issued after enrollment
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,30 +99,55 @@ pub struct RotateCertificateRequest {
 }
 
 impl AgentCertificate {
-    /// Create a new certificate metadata entry
-    pub fn new(req: &IssueCertificateRequest) -> Self {
+    /// Create a new certificate metadata entry.
+    /// Validates and clamps the validity period.
+    pub fn new(req: &IssueCertificateRequest) -> Result<Self, CertificateError> {
+        // Validate hostname
+        if req.hostname.is_empty() || req.hostname.len() > MAX_HOSTNAME_LEN {
+            return Err(CertificateError::GenerationFailed(
+                "Invalid hostname length".to_string(),
+            ));
+        }
+
+        // Reject hostnames with dangerous characters (path traversal, injection)
+        if req.hostname.contains(|c: char| {
+            !c.is_alphanumeric() && c != '.' && c != '-' && c != '_'
+        }) {
+            return Err(CertificateError::GenerationFailed(
+                "Hostname contains invalid characters".to_string(),
+            ));
+        }
+
         let now = Utc::now();
-        let validity = req.validity_days.unwrap_or(CERT_VALIDITY_DAYS);
+        // Clamp validity to safe bounds
+        let validity = req
+            .validity_days
+            .unwrap_or(CERT_VALIDITY_DAYS)
+            .clamp(MIN_CERT_VALIDITY_DAYS, MAX_CERT_VALIDITY_DAYS);
         let not_after = now + Duration::days(validity);
         let serial = Uuid::now_v7().to_string();
         let common_name = format!("{}.{}.raksha.internal", req.agent_id, req.org_id);
 
-        Self {
+        let mut san = vec![
+            common_name.clone(),
+            req.hostname.clone(),
+        ];
+        // Enforce SAN limit
+        san.truncate(MAX_SAN_ENTRIES);
+
+        Ok(Self {
             serial,
             agent_id: req.agent_id,
             org_id: req.org_id,
             fingerprint: String::new(), // Set after cert generation
-            common_name: common_name.clone(),
-            san: vec![
-                common_name,
-                req.hostname.clone(),
-            ],
+            common_name,
+            san,
             not_before: now,
             not_after,
             status: CertificateStatus::Active,
             issued_at: now,
             issuer: "raksha-ca".to_string(),
-        }
+        })
     }
 
     /// Check if certificate needs rotation
@@ -170,7 +207,7 @@ mod tests {
             validity_days: None,
         };
 
-        let cert = AgentCertificate::new(&req);
+        let cert = AgentCertificate::new(&req).unwrap();
         assert!(cert.is_valid());
         assert!(!cert.needs_rotation());
         assert_eq!(cert.status, CertificateStatus::Active);
@@ -182,14 +219,52 @@ mod tests {
         let req = IssueCertificateRequest {
             agent_id: Uuid::now_v7(),
             org_id: Uuid::now_v7(),
-            hostname: "test".to_string(),
+            hostname: "test-host".to_string(),
             validity_days: None,
         };
 
-        let mut cert = AgentCertificate::new(&req);
+        let mut cert = AgentCertificate::new(&req).unwrap();
         assert!(cert.is_valid());
         cert.revoke();
         assert!(!cert.is_valid());
         assert_eq!(cert.status, CertificateStatus::Revoked);
+    }
+
+    #[test]
+    fn test_invalid_hostname_rejected() {
+        let req = IssueCertificateRequest {
+            agent_id: Uuid::now_v7(),
+            org_id: Uuid::now_v7(),
+            hostname: "../etc/passwd".to_string(),
+            validity_days: None,
+        };
+
+        assert!(AgentCertificate::new(&req).is_err());
+    }
+
+    #[test]
+    fn test_empty_hostname_rejected() {
+        let req = IssueCertificateRequest {
+            agent_id: Uuid::now_v7(),
+            org_id: Uuid::now_v7(),
+            hostname: "".to_string(),
+            validity_days: None,
+        };
+
+        assert!(AgentCertificate::new(&req).is_err());
+    }
+
+    #[test]
+    fn test_validity_clamped_to_max() {
+        let req = IssueCertificateRequest {
+            agent_id: Uuid::now_v7(),
+            org_id: Uuid::now_v7(),
+            hostname: "agent-01.internal".to_string(),
+            validity_days: Some(365), // Exceeds MAX_CERT_VALIDITY_DAYS
+        };
+
+        let cert = AgentCertificate::new(&req).unwrap();
+        let duration = cert.not_after - cert.not_before;
+        assert!(duration.num_days() <= MAX_CERT_VALIDITY_DAYS);
     }
 }
