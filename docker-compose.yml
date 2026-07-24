@@ -1,11 +1,21 @@
-version: "3.9"
-
 x-common-env: &common-env
   RUST_LOG: info
   DATABASE_URL: postgres://raksha:${POSTGRES_PASSWORD:-raksha_secret}@postgres:5432/raksha
   REDIS_URL: redis://redis:6379
   TIMESCALE_URL: postgres://raksha:${POSTGRES_PASSWORD:-raksha_secret}@timescaledb:5432/raksha_metrics
   OPENSEARCH_URL: http://opensearch:9200
+
+x-siem-env: &siem-env
+  SIEM_ENABLED: ${SIEM_ENABLED:-false}
+  SIEM_TARGET: ${SIEM_TARGET:-splunk}
+  SIEM_HOST: ${SIEM_HOST:-}
+  SIEM_PORT: ${SIEM_PORT:-}
+  SIEM_TOKEN: ${SIEM_TOKEN:-}
+  SIEM_FORMAT: ${SIEM_FORMAT:-cef}
+  SIEM_TLS_ENABLED: ${SIEM_TLS_ENABLED:-true}
+  SIEM_TLS_VERIFY: ${SIEM_TLS_VERIFY:-true}
+  SIEM_FLUSH_INTERVAL: ${SIEM_FLUSH_INTERVAL:-5s}
+  SIEM_BUFFER_SIZE: ${SIEM_BUFFER_SIZE:-256}
 
 services:
   # ─── Portal API (Rust/Axum) ────────────────────────────────────────
@@ -20,6 +30,16 @@ services:
       - "${PORTAL_PORT:-8080}:8080"
     environment:
       <<: *common-env
+      SIEM_ENABLED: ${SIEM_ENABLED:-false}
+      SIEM_TARGET: ${SIEM_TARGET:-splunk}
+      SIEM_HOST: ${SIEM_HOST:-}
+      SIEM_PORT: ${SIEM_PORT:-}
+      SIEM_TOKEN: ${SIEM_TOKEN:-}
+      SIEM_FORMAT: ${SIEM_FORMAT:-cef}
+      SIEM_TLS_ENABLED: ${SIEM_TLS_ENABLED:-true}
+      SIEM_TLS_VERIFY: ${SIEM_TLS_VERIFY:-true}
+      SIEM_FLUSH_INTERVAL: ${SIEM_FLUSH_INTERVAL:-5s}
+      SIEM_BUFFER_SIZE: ${SIEM_BUFFER_SIZE:-256}
       JWT_SECRET: ${JWT_SECRET:-change_me_in_production}
       PORTAL_HOST: 0.0.0.0
       PORTAL_PORT: "8080"
@@ -28,6 +48,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: "localhost:24224"
+        fluentd-async: "true"
+        tag: "raksha.portal"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
@@ -171,12 +197,103 @@ services:
     networks:
       - raksha-net
 
+  # ─── Fluentd (SIEM Log Forwarder) ─────────────────────────────────────
+  # Optional: Enable with SIEM_ENABLED=true
+  fluentd:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.fluentd
+    image: raksha/fluentd:${RAKSHA_VERSION:-latest}
+    container_name: raksha-fluentd
+    restart: unless-stopped
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+      - "24231:24231"
+    environment:
+      <<: *siem-env
+      RAKSHA_ENVIRONMENT: ${RAKSHA__APP__ENVIRONMENT:-production}
+      SIEM_USER: ${SIEM_USER:-}
+      SPLUNK_INDEX: ${SPLUNK_INDEX:-raksha_security}
+      SYSLOG_PROTOCOL: ${SYSLOG_PROTOCOL:-tcp}
+      GELF_PROTOCOL: ${GELF_PROTOCOL:-udp}
+    volumes:
+      - fluentd-buffer:/fluentd/buffer
+      - fluentd-pos:/fluentd/pos
+      - ./deploy/fluentd/fluent.conf:/fluentd/etc/fluent.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:24231/metrics || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - raksha-net
+    profiles:
+      - siem
+
+  # ─── Grafana (Metrics Visualization) ──────────────────────────────────
+  # Optional: Enable with --profile monitoring
+  grafana:
+    image: grafana/grafana:10.3.1
+    container_name: raksha-grafana
+    restart: unless-stopped
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3001}
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-piechart-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - raksha-net
+    profiles:
+      - monitoring
+
+  # ─── Prometheus (Metrics Collection) ──────────────────────────────────
+  # Optional: Enable with --profile monitoring
+  prometheus:
+    image: prom/prometheus:v2.49.1
+    container_name: raksha-prometheus
+    restart: unless-stopped
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - raksha-net
+    profiles:
+      - monitoring
+
 volumes:
   postgres-data:
   redis-data:
   timescale-data:
   opensearch-data:
   ml-models:
+  fluentd-buffer:
+  fluentd-pos:
+  grafana-data:
+  prometheus-data:
 
 networks:
   raksha-net:

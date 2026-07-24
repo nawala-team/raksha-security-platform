@@ -1,0 +1,186 @@
+# ─── Raksha Security Platform - SIEM Integration Defaults ────────────────────
+# Default configuration template with examples for each supported SIEM target.
+# Copy relevant section values to your .env file.
+#
+# Supported targets: splunk, elasticsearch, wazuh, graylog, syslog, loki
+# Supported formats: cef (Common Event Format), leef (Log Event Extended Format),
+#                    json (structured JSON), syslog (RFC 5424)
+
+---
+# ─── Global Defaults ────────────────────────────────────────────────────────
+global:
+  enabled: false
+  flush_interval: "5s"
+  buffer_size_mb: 256
+  retry_max_times: 5
+  retry_wait_seconds: 10
+  tls_enabled: true
+  tls_verify: true
+  # Path to custom CA certificate bundle (optional)
+  tls_ca_path: ""
+
+# ─── Log Format Settings ────────────────────────────────────────────────────
+formats:
+  cef:
+    version: "0"
+    device_vendor: "Raksha"
+    device_product: "SecurityPlatform"
+    device_version: "1.0"
+    # Severity mapping: 0-3=Low, 4-6=Medium, 7-8=High, 9-10=Critical
+    severity_map:
+      low: 3
+      medium: 5
+      high: 8
+      critical: 10
+
+  leef:
+    version: "2.0"
+    device_vendor: "Raksha"
+    device_product: "SecurityPlatform"
+    device_version: "1.0"
+    delimiter: "|"
+
+  json:
+    # Include full event payload or summary only
+    include_raw_event: true
+    timestamp_format: "iso8601"
+    flatten_nested: false
+
+  syslog:
+    facility: "local0"
+    rfc: "5424"
+    app_name: "raksha-security"
+
+# ─── Splunk Configuration ───────────────────────────────────────────────────
+targets:
+  splunk:
+    description: "Splunk via HTTP Event Collector (HEC)"
+    host: ""
+    port: 8088
+    token: ""
+    format: "json"
+    tls_enabled: true
+    # Splunk-specific settings
+    index: "raksha_security"
+    source: "raksha-platform"
+    sourcetype: "_json"
+    # Channel UUID for HEC acknowledgment (optional)
+    channel: ""
+    # Example .env values:
+    #   SIEM_TARGET=splunk
+    #   SIEM_HOST=splunk.company.com
+    #   SIEM_PORT=8088
+    #   SIEM_TOKEN=your-hec-token-uuid
+    #   SIEM_FORMAT=json
+    #   SPLUNK_INDEX=raksha_security
+
+  # ─── Elasticsearch / OpenSearch ─────────────────────────────────────────
+  elasticsearch:
+    description: "Elasticsearch or OpenSearch cluster"
+    host: ""
+    port: 9200
+    token: ""  # Used as password for basic auth
+    user: ""
+    format: "json"
+    tls_enabled: true
+    # Index pattern (date pattern appended automatically)
+    index_prefix: "raksha-security"
+    # ILM policy name (optional, for index lifecycle management)
+    ilm_policy: "raksha-security-policy"
+    # Example .env values:
+    #   SIEM_TARGET=elasticsearch
+    #   SIEM_HOST=elastic.company.com
+    #   SIEM_PORT=9200
+    #   SIEM_USER=raksha_writer
+    #   SIEM_TOKEN=elastic-password
+    #   SIEM_FORMAT=json
+
+  # ─── Wazuh ─────────────────────────────────────────────────────────────
+  wazuh:
+    description: "Wazuh SIEM via Syslog or API integration"
+    host: ""
+    port: 1514
+    token: ""
+    format: "cef"
+    tls_enabled: true
+    # Wazuh-specific settings
+    agent_group: "raksha-servers"
+    api_port: 55000
+    api_user: "wazuh-wui"
+    # Example .env values:
+    #   SIEM_TARGET=wazuh
+    #   SIEM_HOST=wazuh-manager.company.com
+    #   SIEM_PORT=1514
+    #   SIEM_TOKEN=wazuh-api-token
+    #   SIEM_FORMAT=cef
+
+  # ─── Graylog ───────────────────────────────────────────────────────────
+  graylog:
+    description: "Graylog via GELF (Graylog Extended Log Format)"
+    host: ""
+    port: 12201
+    token: ""
+    format: "json"
+    tls_enabled: false
+    # GELF-specific settings
+    protocol: "udp"  # udp or tcp
+    compress: true
+    chunk_size: 1420
+    # Example .env values:
+    #   SIEM_TARGET=graylog
+    #   SIEM_HOST=graylog.company.com
+    #   SIEM_PORT=12201
+    #   SIEM_FORMAT=json
+    #   GELF_PROTOCOL=udp
+
+  # ─── Generic Syslog ────────────────────────────────────────────────────
+  syslog:
+    description: "Generic Syslog (RFC 5424) over TCP/UDP/TLS"
+    host: ""
+    port: 514
+    token: ""
+    format: "cef"
+    tls_enabled: false
+    # Syslog-specific settings
+    protocol: "tcp"  # tcp, udp, or tls
+    facility: "local0"
+    severity: "info"
+    # Example .env values:
+    #   SIEM_TARGET=syslog
+    #   SIEM_HOST=syslog.company.com
+    #   SIEM_PORT=514
+    #   SIEM_FORMAT=cef
+    #   SYSLOG_PROTOCOL=tcp
+
+  # ─── Grafana Loki ──────────────────────────────────────────────────────
+  loki:
+    description: "Grafana Loki for log aggregation"
+    host: ""
+    port: 3100
+    token: ""
+    format: "json"
+    tls_enabled: false
+    # Loki-specific settings
+    tenant_id: ""
+    labels:
+      job: "raksha-security"
+      environment: "production"
+    # Example .env values:
+    #   SIEM_TARGET=loki
+    #   SIEM_HOST=loki.company.com
+    #   SIEM_PORT=3100
+    #   SIEM_TOKEN=loki-api-key
+    #   SIEM_FORMAT=json
+
+# ─── Event Filtering ────────────────────────────────────────────────────────
+filtering:
+  # Minimum severity to forward (low, medium, high, critical)
+  min_severity: "low"
+  # Event types to include (empty = all)
+  include_event_types: []
+  # Event types to exclude
+  exclude_event_types: []
+  # Rate limiting (events per second, 0 = unlimited)
+  rate_limit: 0
+  # Deduplicate identical events within window (seconds)
+  dedup_window_seconds: 0

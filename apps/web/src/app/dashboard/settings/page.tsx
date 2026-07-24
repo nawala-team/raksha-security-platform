@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SiemSettings } from "./siem";
+import { NotificationSettings } from "./notifications";
 
 export default function SettingsPage() {
   return (
@@ -21,6 +23,7 @@ export default function SettingsPage() {
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="siem">SIEM</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
         </TabsList>
 
@@ -51,22 +54,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="notifications">
-          <Card className="border-border">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Bell className="h-5 w-5 text-primary" />Notifications
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {["Email for critical alerts", "Email for high severity", "Slack notifications", "SMS for critical alerts"].map((item) => (
-                <div key={item} className="flex items-center gap-3">
-                  <Checkbox id={item} defaultChecked={item.includes("critical")} />
-                  <Label htmlFor={item} className="cursor-pointer">{item}</Label>
-                </div>
-              ))}
-              <Button>Save Preferences</Button>
-            </CardContent>
-          </Card>
+          <NotificationSettings />
         </TabsContent>
 
         <TabsContent value="security">
@@ -110,13 +98,13 @@ export default function SettingsPage() {
                 <Label htmlFor="vt-key">VirusTotal API Key</Label>
                 <Input id="vt-key" type="password" placeholder="Enter API key" />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="siem-url">SIEM Endpoint</Label>
-                <Input id="siem-url" type="url" placeholder="https://siem.example.com/api" />
-              </div>
               <Button>Save Integrations</Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="siem">
+          <SiemSettings />
         </TabsContent>
       </Tabs>
     </div>

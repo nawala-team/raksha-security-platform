@@ -18,6 +18,7 @@ import {
   LogOut,
   Bot,
   Globe,
+  Bug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -31,6 +32,7 @@ const navigation = [
   { name: "FIM", href: "/dashboard/fim", icon: FileSearch },
   { name: "Agents", href: "/dashboard/agents", icon: Bot },
   { name: "Threat Intel", href: "/dashboard/threat-intel", icon: Globe },
+  { name: "Vulnerabilities", href: "/dashboard/vulnerabilities", icon: Bug },
   { name: "Compliance", href: "/dashboard/compliance", icon: ClipboardCheck },
   { name: "Audit Trail", href: "/dashboard/audit", icon: ScrollText },
   { name: "Users", href: "/dashboard/users", icon: Users },

@@ -1,0 +1,41 @@
+# ─── Raksha Fluentd - Custom SIEM Log Forwarder ─────────────────────────────
+# Extends official Fluentd with plugins for Splunk, Elasticsearch, and Syslog
+# Build: docker build -f deploy/docker/Dockerfile.fluentd -t raksha/fluentd .
+
+FROM fluent/fluentd:v1.16-debian-1
+
+LABEL maintainer="Raksha Security Platform <infra@raksha.dev>"
+LABEL description="Custom Fluentd image with SIEM forwarding plugins"
+
+USER root
+
+# Install build dependencies and SIEM output plugins
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      build-essential \
+      libssl-dev \
+      ruby-dev && \
+    gem install --no-document \
+      fluent-plugin-splunk-hec:1.3.3 \
+      fluent-plugin-elasticsearch:5.4.3 \
+      fluent-plugin-remote_syslog:1.1.0 \
+      fluent-plugin-grafana-loki:1.2.20 \
+      fluent-plugin-gelf-hs:1.0.8 \
+      fluent-plugin-rewrite-tag-filter:2.4.0 \
+      fluent-plugin-prometheus:2.1.0 && \
+    apt-get purge -y --auto-remove build-essential ruby-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Create directories for buffer and position files
+RUN mkdir -p /fluentd/buffer /fluentd/pos /fluentd/certs && \
+    chown -R fluent:fluent /fluentd
+
+# Copy configuration
+COPY deploy/fluentd/fluent.conf /fluentd/etc/fluent.conf
+
+USER fluent
+
+EXPOSE 24224 24224/udp 24231
+
+ENTRYPOINT ["tini", "--", "fluentd", "-c", "/fluentd/etc/fluent.conf"]

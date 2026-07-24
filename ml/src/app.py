@@ -14,6 +14,7 @@ from contextlib import asynccontextmanager
 import structlog
 
 from .models import AnomalyDetector, AnomalyPrediction
+from .scanner.routes import router as scanner_router
 
 logger = structlog.get_logger()
 
@@ -45,6 +46,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(scanner_router)
 
 
 class PredictRequest(BaseModel):
