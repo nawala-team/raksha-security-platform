@@ -52,6 +52,19 @@ Content-Type: application/json
 
 ## API Endpoints
 
+### Agent Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/agents` | List enrolled agents |
+| GET | `/agents/:id` | Get agent details |
+| GET | `/agents/:id/metrics` | Get agent metrics |
+| POST | `/agents/enroll` | Enroll a new agent (public, requires token) |
+| POST | `/agents/tokens` | Generate enrollment token (admin) |
+| GET | `/agents/tokens` | List enrollment tokens (admin) |
+| DELETE | `/agents/tokens/:id` | Revoke enrollment token (admin) |
+| POST | `/agents/:id/rotate-certificate` | Rotate agent mTLS certificate |
+
 ### Server Monitor
 
 | Method | Endpoint | Description |

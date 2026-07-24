@@ -102,7 +102,36 @@ export interface SecurityDocument {
   status: "draft" | "published" | "archived";
 }
 
-export interface SecurityScore {
+export interface Agent {
+  id: string;
+  name: string;
+  hostname: string;
+  os: "linux" | "windows" | "darwin";
+  arch: "x86_64" | "aarch64";
+  version: string;
+  status: "online" | "offline" | "degraded";
+  lastSeen: string;
+  enrolledAt: string;
+  ipAddress?: string;
+  networkZone?: string;
+  labels: string[];
+  modules: string[];
+}
+
+export interface EnrollmentToken {
+  id: string;
+  tokenPreview: string;
+  agentName: string;
+  labels: string[];
+  createdAt: string;
+  expiresAt: string;
+  maxUses: number;
+  usedCount: number;
+  status: "active" | "expired" | "revoked" | "used";
+  createdBy: string;
+}
+
+
   overall: number;
   categories: {
     network: number;

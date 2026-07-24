@@ -78,7 +78,7 @@ docker run -d \
   -p 8080:8080 \
   -p 9090:9090 \
   -v raksha-data:/var/lib/raksha \
-  nawala/raksha:latest
+  ghcr.io/dansiapa/raksha:latest
 ```
 
 Or with Docker Compose:
@@ -169,6 +169,7 @@ export RAKSHA_SERVER__PORT=9090
 - [Architecture](docs/ARCHITECTURE.md) — System design and component overview
 - [API Reference](docs/API.md) — REST and GraphQL API documentation
 - [Installation Guide](docs/INSTALLATION.md) — Detailed setup instructions
+- [Agent Enrollment](docs/AGENT-ENROLLMENT.md) — Agent setup and enrollment flow
 - [Security Standards](docs/SECURITY-STANDARDS.md) — Supported compliance frameworks
 
 ## Contributing

@@ -4,6 +4,7 @@ message: "If you use this software, please cite it as below."
 type: software
 authors:
   - name: "NAWALA TEAM"
+    email: "dummymailrangga@gmail.com"
     country: "ID"
     city: "Jakarta"
 repository-code: "https://github.com/dansiapa/raksha-security-platform"

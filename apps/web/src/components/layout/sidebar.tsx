@@ -15,6 +15,7 @@ import {
   FileText,
   Settings,
   LogOut,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -25,6 +26,7 @@ const navigation = [
   { name: "Servers", href: "/dashboard/servers", icon: Server },
   { name: "Network", href: "/dashboard/network", icon: Network },
   { name: "Database", href: "/dashboard/database", icon: Database },
+  { name: "Agents", href: "/dashboard/agents", icon: Bot },
   { name: "Compliance", href: "/dashboard/compliance", icon: ClipboardCheck },
   { name: "Audit Trail", href: "/dashboard/audit", icon: ScrollText },
   { name: "Users", href: "/dashboard/users", icon: Users },

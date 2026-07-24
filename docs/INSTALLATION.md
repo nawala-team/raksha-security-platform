@@ -48,7 +48,7 @@ docker run -d \
   -p 8080:8080 \
   -p 9090:9090 \
   -v raksha-data:/var/lib/raksha \
-  nawala/raksha:latest
+  ghcr.io/dansiapa/raksha:latest
 ```
 
 ### Production (Docker Compose)
