@@ -16,7 +16,7 @@ members = [
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/raksha-security/raksha-platform"
+repository = "https://github.com/dansiapa/raksha-security-platform"
 
 [workspace.dependencies]
 # Async runtime

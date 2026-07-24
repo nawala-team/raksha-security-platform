@@ -74,7 +74,7 @@ This is a **recognition-based** program for the open-source community. We believ
 
 ## How to Report
 
-1. Email: **security@nawala.dev**
+1. Email: **dummymailrangga@gmail.com**
 2. Subject: `[BUG-BOUNTY] <brief description>`
 3. Include:
    - Affected component and version

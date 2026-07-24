@@ -84,7 +84,7 @@ docker run -d \
 Or with Docker Compose:
 
 ```bash
-git clone https://github.com/nawala-team/raksha-security-platform.git
+git clone https://github.com/dansiapa/raksha-security-platform.git
 cd raksha-security-platform
 docker compose up -d
 ```
@@ -93,7 +93,7 @@ docker compose up -d
 
 ```bash
 # Prerequisites: Rust 1.75+, Node.js 20+, PostgreSQL 16+
-git clone https://github.com/nawala-team/raksha-security-platform.git
+git clone https://github.com/dansiapa/raksha-security-platform.git
 cd raksha-security-platform
 npm install
 cargo build --release

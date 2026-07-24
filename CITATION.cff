@@ -6,8 +6,8 @@ authors:
   - name: "NAWALA TEAM"
     country: "ID"
     city: "Jakarta"
-repository-code: "https://github.com/nawala-team/raksha-security-platform"
-url: "https://raksha.nawala.dev"
+repository-code: "https://github.com/dansiapa/raksha-security-platform"
+url: "https://github.com/dansiapa/raksha-security-platform"
 abstract: >-
   Raksha (Sanskrit: रक्षा, meaning protection) is a comprehensive
   infrastructure security monitoring and compliance platform. It provides

@@ -5,7 +5,7 @@
 ## Base URL
 
 ```
-Production:  https://api.raksha.nawala.dev/v1
+Production:  https://your-domain.com/api/v1
 Development: http://localhost:8080/api/v1
 ```
 
@@ -14,7 +14,7 @@ Development: http://localhost:8080/api/v1
 All API requests require authentication via JWT Bearer token.
 
 ```bash
-curl -H "Authorization: Bearer <token>" https://api.raksha.nawala.dev/v1/...
+curl -H "Authorization: Bearer <token>" https://your-domain.com/api/v1/...
 ```
 
 ### Obtain Token
@@ -175,7 +175,7 @@ query {
 Connect to `/api/v1/ws` for real-time updates:
 
 ```javascript
-const ws = new WebSocket('wss://api.raksha.nawala.dev/v1/ws');
+const ws = new WebSocket('wss://your-domain.com/api/v1/ws');
 ws.send(JSON.stringify({ subscribe: ['alerts', 'metrics'] }));
 ```
 

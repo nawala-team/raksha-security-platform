@@ -15,7 +15,7 @@ Only the latest release on the `main` branch receives security patches. Older ve
 
 **Do NOT open a public GitHub issue for security vulnerabilities.**
 
-Send vulnerability reports to: **security@nawala.dev**
+Send vulnerability reports to: **dummymailrangga@gmail.com**
 
 ### What to Include
 
@@ -97,6 +97,6 @@ Security advisories are published via:
 
 ## Contact
 
-- Security Team: security@nawala.dev
+- Security Team: dummymailrangga@gmail.com
 - PGP key: Available upon request
 - Response hours: UTC business hours (Mon-Fri), best effort on weekends for critical issues

@@ -30,7 +30,7 @@ This project adheres to the [Contributor Covenant Code of Conduct](CODE_OF_CONDU
 ```bash
 git clone https://github.com/<your-username>/raksha-security-platform.git
 cd raksha-security-platform
-git remote add upstream https://github.com/nawala-team/raksha-security-platform.git
+git remote add upstream https://github.com/dansiapa/raksha-security-platform.git
 npm install
 cp .env.example .env
 docker compose -f docker-compose.dev.yml up -d

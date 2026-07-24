@@ -1,124 +1,107 @@
-﻿#Requires -RunAsAdministrator
-# Raksha Security Platform - Agent Installer (Windows)
-param(
-    [string]$Version = "latest",
-    [string]$PortalUrl = "http://localhost:8080",
-    [string]$AgentKey = "",
-    [string]$InstallDir = "C:\Program Files\Raksha\Agent",
-    [string]$ConfigDir = "C:\ProgramData\Raksha\Agent",
-    [string]$LogDir = "C:\ProgramData\Raksha\Agent\logs"
-)
+# Raksha Agent Installer for Windows
+# Usage: $env:RAKSHA_TOKEN="rkat_xxx"; $env:RAKSHA_PORTAL="https://portal"; irm https://portal/api/v1/agent/install.ps1 | iex
+#Requires -RunAsAdministrator
 
 $ErrorActionPreference = "Stop"
-$DownloadBase = "https://github.com/raksha-security/raksha-platform/releases/download"
+$InstallDir = "C:\Program Files\Raksha Agent"
+$ConfigDir = "C:\ProgramData\Raksha"
+$LogDir = "C:\ProgramData\Raksha\logs"
+$ServiceName = "RakshaAgent"
 
-function Write-Step($msg) { Write-Host "[*] $msg" -ForegroundColor Cyan }
-function Write-Ok($msg)   { Write-Host "[+] $msg" -ForegroundColor Green }
-function Write-Warn($msg) { Write-Host "[!] $msg" -ForegroundColor Yellow }
-function Write-Err($msg)  { Write-Host "[-] $msg" -ForegroundColor Red; exit 1 }
+function Write-Info($msg) { Write-Host "[INFO] $msg" -ForegroundColor Green }
+function Write-Err($msg) { Write-Host "[ERROR] $msg" -ForegroundColor Red; exit 1 }
 
-Write-Host ""
-Write-Host "  Raksha Security Platform - Agent Installer (Windows)" -ForegroundColor White
-Write-Host "  ====================================================" -ForegroundColor White
-Write-Host ""
+# Preflight
+if (-not $env:RAKSHA_TOKEN) { Write-Err "RAKSHA_TOKEN env var required" }
+if (-not $env:RAKSHA_PORTAL) { Write-Err "RAKSHA_PORTAL env var required" }
+if (-not $env:RAKSHA_TOKEN.StartsWith("rkat_")) { Write-Err "Invalid token format" }
+Write-Info "Preflight checks passed"
 
-# Detect architecture
-$arch = if ([Environment]::Is64BitOperatingSystem) { "amd64" } else { Write-Err "32-bit not supported" }
-Write-Step "Detected: windows-$arch"
+# Detect
+$Arch = if ([Environment]::Is64BitOperatingSystem) { "x86_64" } else { "x86" }
+Write-Info "Detected: windows/$Arch"
 
-# Create directories
-Write-Step "Creating directories..."
-@($InstallDir, "$InstallDir\bin", $ConfigDir, $LogDir) | ForEach-Object {
-    if (-not (Test-Path $_)) { New-Item -ItemType Directory -Path $_ -Force | Out-Null }
-}
-Write-Ok "Directories created"
+# Fingerprint
+$Hostname = $env:COMPUTERNAME
+$OsVersion = (Get-CimInstance Win32_OperatingSystem).Version
+$CpuCores = (Get-CimInstance Win32_Processor).NumberOfCores
+$TotalMem = (Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory
+$MachineId = (Get-CimInstance Win32_ComputerSystemProduct).UUID
+$MacRaw = (Get-NetAdapter | Where-Object Status -eq "Up" | Select-Object -First 1).MacAddress
+$MacHash = [BitConverter]::ToString(
+    [System.Security.Cryptography.SHA256]::Create().ComputeHash(
+        [System.Text.Encoding]::UTF8.GetBytes($MacRaw)
+    )
+).Replace("-","").ToLower()
+Write-Info "Fingerprint collected"
 
-# Download agent
-$url = "$DownloadBase/v$Version/raksha-agent-windows-$arch.zip"
-$tmp = "$env:TEMP\raksha-agent.zip"
-Write-Step "Downloading agent v$Version..."
+# Download
+New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+$BinaryPath = Join-Path $InstallDir "raksha-agent.exe"
+$DownloadUrl = "$env:RAKSHA_PORTAL/api/v1/agent/download/windows/$Arch"
+$FallbackUrl = "https://github.com/dansiapa/raksha-security-platform/releases/latest/download/raksha-agent-windows-$Arch.exe"
 try {
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing
+    Invoke-WebRequest -Uri $DownloadUrl -OutFile $BinaryPath -Headers @{Authorization="Bearer $env:RAKSHA_TOKEN"}
 } catch {
-    Write-Err "Download failed: $_"
+    try { Invoke-WebRequest -Uri $FallbackUrl -OutFile $BinaryPath }
+    catch { Write-Err "Failed to download agent binary" }
 }
-Expand-Archive -Path $tmp -DestinationPath "$InstallDir\bin" -Force
-Remove-Item $tmp -Force
-Write-Ok "Agent binary installed"
+Write-Info "Binary installed at $BinaryPath"
 
-# Generate config
-$configFile = "$ConfigDir\agent.toml"
-if (-not (Test-Path $configFile)) {
-    Write-Step "Generating config..."
-    $agentId = [guid]::NewGuid().ToString()
-    $hostname = $env:COMPUTERNAME
-    $config = @"
+# Enroll
+$Body = @{
+    token = $env:RAKSHA_TOKEN
+    fingerprint = @{
+        hostname = $Hostname
+        os = "windows"
+        os_version = $OsVersion
+        arch = $Arch
+        machine_id = $MachineId
+        cpu_cores = [int]$CpuCores
+        total_memory = [long]$TotalMem
+        mac_hash = $MacHash
+    }
+} | ConvertTo-Json -Depth 3
+
+$Response = Invoke-RestMethod -Method Post -Uri "$env:RAKSHA_PORTAL/api/v1/agents/enroll" `
+    -ContentType "application/json" -Body $Body
+if ($Response.error) { Write-Err "Enrollment failed: $($Response.message)" }
+$AgentId = $Response.agent_id
+Write-Info "Agent enrolled: $AgentId"
+
+# Config
+New-Item -ItemType Directory -Force -Path $ConfigDir,$LogDir | Out-Null
+$Config = @"
 [agent]
-id = "$agentId"
-hostname = "$hostname"
-
-[portal]
-url = "$PortalUrl"
-api_key = "$AgentKey"
+id = "$AgentId"
+portal_url = "$env:RAKSHA_PORTAL"
+[security]
 tls_verify = true
-
-[collection]
-interval_seconds = 30
-cpu = true
-memory = true
-disk = true
-network = true
-processes = true
-
+[reporting]
+interval_secs = 30
+heartbeat_secs = 10
+[modules]
+enabled = ["server", "network", "process"]
 [logging]
 level = "info"
-file = "C:/ProgramData/Raksha/Agent/logs/agent.log"
+file = "$LogDir\\agent.log"
 "@
-    Set-Content -Path $configFile -Value $config -Encoding UTF8
-    Write-Ok "Config generated at $configFile"
-} else {
-    Write-Warn "Config already exists, skipping"
-}
+Set-Content -Path "$ConfigDir\agent.toml" -Value $Config
+Write-Info "Config saved to $ConfigDir\agent.toml"
 
 # Install Windows Service
-Write-Step "Installing Windows service..."
-$svcName = "RakshaAgent"
-$binPath = "$InstallDir\bin\raksha-agent.exe --config $configFile"
-if (Get-Service -Name $svcName -ErrorAction SilentlyContinue) {
-    Write-Warn "Service exists, updating..."
-    Stop-Service $svcName -Force -ErrorAction SilentlyContinue
-    sc.exe delete $svcName | Out-Null
-    Start-Sleep -Seconds 2
+$svcParams = @{
+    Name = $ServiceName
+    BinaryPathName = "`"$BinaryPath`" --config `"$ConfigDir\agent.toml`""
+    DisplayName = "Raksha Security Agent"
+    Description = "Infrastructure security monitoring agent"
+    StartupType = "Automatic"
 }
-New-Service -Name $svcName `
-    -BinaryPathName $binPath `
-    -DisplayName "Raksha Security Agent" `
-    -Description "Raksha host monitoring and security agent" `
-    -StartupType Automatic | Out-Null
+New-Service @svcParams | Out-Null
+Start-Service $ServiceName
+Write-Info "Service installed and started"
 
-# Set service recovery options (restart on failure)
-sc.exe failure $svcName reset= 86400 actions= restart/5000/restart/10000/restart/30000 | Out-Null
-Write-Ok "Windows service installed with auto-recovery"
-
-# Add firewall rule for outbound (agent -> portal)
-if (-not (Get-NetFirewallRule -DisplayName "Raksha Agent Outbound" -ErrorAction SilentlyContinue)) {
-    New-NetFirewallRule -DisplayName "Raksha Agent Outbound" -Direction Outbound `
-        -Program "$InstallDir\bin\raksha-agent.exe" -Action Allow | Out-Null
-    Write-Ok "Firewall rule added"
-}
-
-# Add to PATH
-$machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
-if ($machinePath -notlike "*$InstallDir\bin*") {
-    [Environment]::SetEnvironmentVariable("Path", "$machinePath;$InstallDir\bin", "Machine")
-    Write-Ok "Added to system PATH"
-}
-
-Write-Host ""
-Write-Ok "Raksha Agent installed successfully!"
-Write-Ok "Binary:  $InstallDir\bin\raksha-agent.exe"
-Write-Ok "Config:  $configFile"
-Write-Ok "Start:   Start-Service RakshaAgent"
-Write-Ok "Status:  Get-Service RakshaAgent"
-Write-Ok "Logs:    $LogDir\agent.log"
+Write-Host "`n✅ Raksha Agent installed!" -ForegroundColor Green
+Write-Host "  Agent: $AgentId | Portal: $env:RAKSHA_PORTAL"
+Write-Host "  Config: $ConfigDir\agent.toml"
+Write-Host "  Status: Get-Service $ServiceName"

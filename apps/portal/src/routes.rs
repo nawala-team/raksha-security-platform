@@ -1,5 +1,7 @@
 use axum::{
     middleware as axum_middleware,
+    response::IntoResponse,
+    http::{header, StatusCode},
     Router,
 };
 use tower_http::{
@@ -23,13 +25,20 @@ pub fn build_router(state: AppState) -> Router {
     // Public routes (no auth required)
     let public_routes = Router::new()
         .nest("/auth", handlers::auth::routes())
-        .nest("/health", handlers::health::routes());
+        .nest("/health", handlers::health::routes())
+        .route("/agents/enroll", axum::routing::post(handlers::enrollment::enroll_agent))
+        .route("/agent/install", axum::routing::get(serve_install_script))
+        .route("/agent/install.ps1", axum::routing::get(serve_install_ps1));
 
     // Protected routes (auth required)
     let protected_routes = Router::new()
         .nest("/users", handlers::users::routes())
         .nest("/alerts", handlers::alerts::routes())
         .nest("/agents", handlers::agents::routes())
+        .route("/agents/tokens", axum::routing::post(handlers::enrollment::generate_token))
+        .route("/agents/tokens", axum::routing::get(handlers::enrollment::list_tokens))
+        .route("/agents/tokens/{token_id}", axum::routing::delete(handlers::enrollment::revoke_token))
+        .route("/agents/{agent_id}/rotate-certificate", axum::routing::post(handlers::enrollment::rotate_certificate))
         .nest("/compliance", handlers::compliance::routes())
         .nest("/audit", handlers::audit::routes())
         .layer(axum_middleware::from_fn_with_state(
@@ -55,5 +64,25 @@ pub fn build_router(state: AppState) -> Router {
             rate_limit_layer,
         ))
         .with_state(state)
+}
+
+/// Serve the Linux/macOS install script
+async fn serve_install_script() -> impl IntoResponse {
+    let script = include_str!("../../../scripts/install-agent.sh");
+    (
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "text/x-shellscript")],
+        script,
+    )
+}
+
+/// Serve the Windows PowerShell install script
+async fn serve_install_ps1() -> impl IntoResponse {
+    let script = include_str!("../../../scripts/install-agent.ps1");
+    (
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "text/plain")],
+        script,
+    )
 }
 

@@ -7,6 +7,12 @@ pub struct AppConfig {
     pub redis: RedisConfig,
     pub jwt: JwtConfig,
     pub app: AppSettings,
+    #[serde(default = "default_portal_url")]
+    pub portal_url: String,
+}
+
+fn default_portal_url() -> String {
+    "http://localhost:8080".to_string()
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -67,6 +73,7 @@ impl AppConfig {
             .set_default("app.name", "Raksha Security Platform")?
             .set_default("app.environment", "development")?
             .set_default("app.log_level", "info")?
+            .set_default("portal_url", "http://localhost:8080")?
             .add_source(config::File::with_name("config/default").required(false))
             .add_source(config::File::with_name("config/local").required(false))
             .add_source(
