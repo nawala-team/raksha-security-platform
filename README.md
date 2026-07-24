@@ -291,7 +291,7 @@ This is a **fully open-source** project -- free for personal, commercial, and en
 </p>
 
 <p align="center">
-  Made with love by <strong>NAWALA TEAM</strong> in Indonesia
+  Created & Supported by <strong>NAWALA TEAM</strong> in Indonesia
 </p>
 
 <p align="center">
