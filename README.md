@@ -1,76 +1,149 @@
-﻿<p align="center">
-  <h1 align="center">🔱 Raksha Security Platform</h1>
-  <p align="center">
-    <em>Comprehensive infrastructure security monitoring and compliance platform</em>
-  </p>
-  <p align="center">
-    <a href="#features"><img src="https://img.shields.io/badge/status-active-brightgreen" alt="Status"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License"></a>
-    <a href="#nawala-ecosystem"><img src="https://img.shields.io/badge/ecosystem-Nawala-orange" alt="Nawala Ecosystem"></a>
-    <a href="#"><img src="https://img.shields.io/badge/rust-1.75%2B-orange" alt="Rust"></a>
-    <a href="#"><img src="https://img.shields.io/badge/node-20%2B-green" alt="Node.js"></a>
-  </p>
+<p align="center">
+  <img src="assets/images/logo.svg" alt="Raksha Logo" width="160" height="160"/>
+</p>
+
+<h1 align="center">Raksha Security Platform</h1>
+
+<p align="center">
+  <strong>Enterprise-grade infrastructure security monitoring, compliance auditing, and threat detection.</strong>
+</p>
+
+<p align="center">
+  <a href="#features"><img src="https://img.shields.io/badge/status-active-brightgreen?style=for-the-badge" alt="Status"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="License"/></a>
+  <a href="#nawala-ecosystem"><img src="https://img.shields.io/badge/ecosystem-Nawala-orange?style=for-the-badge" alt="Nawala"/></a>
+  <a href="#"><img src="https://img.shields.io/badge/rust-1.75+-orange?style=for-the-badge&logo=rust" alt="Rust"/></a>
+  <a href="#"><img src="https://img.shields.io/badge/node-20+-green?style=for-the-badge&logo=node.js" alt="Node.js"/></a>
+  <a href="#"><img src="https://img.shields.io/badge/python-3.11+-blue?style=for-the-badge&logo=python" alt="Python"/></a>
+</p>
+
+<p align="center">
+  <a href="docs/INSTALLATION.md">Installation</a> •
+  <a href="docs/ARCHITECTURE.md">Architecture</a> •
+  <a href="docs/API.md">API Reference</a> •
+  <a href="docs/AGENT-ENROLLMENT.md">Agent Setup</a> •
+  <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
 ---
 
 ## About
 
-**Raksha** (रक्षा) — from Sanskrit, meaning *protection* or *guardian* — is an enterprise-grade security monitoring platform that provides real-time infrastructure protection, compliance auditing, and threat detection across your entire stack.
+**Raksha** (रक्षा) — from Sanskrit, meaning *protection* or *guardian* — is a full-stack security monitoring platform that provides real-time infrastructure protection, compliance auditing, and ML-powered threat detection across your entire stack.
 
-Part of the **Nawala Ecosystem** — a suite of security and infrastructure tools built with Sanskrit-inspired naming by the NAWALA TEAM in Indonesia.
+Part of the [Nawala Ecosystem](https://github.com/dansiapa/nawala-gateway-platform) — a suite of open-source security and infrastructure tools built by the **NAWALA TEAM** in Indonesia.
 
-## Features
-
-| Module | Description |
-|--------|-------------|
-| 🖥️ **Server Monitor** | Real-time server health, resource utilization, and anomaly detection |
-| 🌐 **Network Scanner** | Port scanning, vulnerability assessment, and network topology mapping |
-| 🗄️ **Database Guard** | Database security auditing, access monitoring, and encryption verification |
-| 📋 **Compliance Engine** | Automated compliance checking against CIS, NIST, PCI-DSS, ISO 27001 |
-| 🤖 **ML Threat Detection** | Machine learning-powered anomaly detection and threat prediction |
-| 🌍 **Threat Intelligence** | Auto-syncing IOC feeds from CISA, MITRE, Abuse.ch, OTX, NVD |
-| 📝 **Audit Trail** | Immutable audit logging with cryptographic verification |
-| 🔔 **Real-time Alerts** | WebSocket-based live alerting with Email, Slack, and Webhook notifications |
-| 👥 **User Management** | RBAC with Admin, Analyst, Operator, Viewer roles and privilege control |
-| 🕵️ **Agent System** | Cross-platform agents with mTLS enrollment and FIM |
+---
 
 ## Architecture
 
+<p align="center">
+  <img src="assets/diagrams/architecture.svg" alt="Raksha Architecture" width="100%"/>
+</p>
+
+---
+
+## Features
+
+<table>
+  <tr>
+    <td align="center" width="25%"><strong>🖥️ Server Monitor</strong><br/><sub>Real-time server health, resource utilization, and anomaly detection</sub></td>
+    <td align="center" width="25%"><strong>🌐 Network Scanner</strong><br/><sub>Port scanning, vulnerability assessment, and topology mapping</sub></td>
+    <td align="center" width="25%"><strong>🗄️ Database Guard</strong><br/><sub>Multi-DB security auditing, access monitoring, encryption checks</sub></td>
+    <td align="center" width="25%"><strong>📋 Compliance Engine</strong><br/><sub>Automated checks against CIS, NIST, PCI-DSS, ISO 27001</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>🤖 ML Threat Detection</strong><br/><sub>Isolation Forest, CNN, LSTM models for anomaly and prediction</sub></td>
+    <td align="center"><strong>🌍 Threat Intelligence</strong><br/><sub>Auto-syncing IOC feeds from CISA, MITRE, Abuse.ch, OTX, NVD</sub></td>
+    <td align="center"><strong>📝 Audit Trail</strong><br/><sub>Immutable logging with SHA3-256 cryptographic verification</sub></td>
+    <td align="center"><strong>🔔 Real-time Alerts</strong><br/><sub>WebSocket live alerts + Email, Slack, Webhook notifications</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>👥 User Management</strong><br/><sub>RBAC with Admin, Analyst, Operator, Viewer roles + MFA</sub></td>
+    <td align="center"><strong>🕵️ Agent System</strong><br/><sub>Cross-platform agents with mTLS enrollment and FIM</sub></td>
+    <td align="center"><strong>🛡️ Setup Wizard</strong><br/><sub>Guided first-run installation with system checks</sub></td>
+    <td align="center"><strong>📊 Dashboard</strong><br/><sub>Interactive security posture overview with live metrics</sub></td>
+  </tr>
+</table>
+
+---
+
+## Agent Enrollment
+
+<p align="center">
+  <img src="assets/diagrams/enrollment-flow.svg" alt="Agent Enrollment Flow" width="100%"/>
+</p>
+
+### Token Format
+
+<p align="center">
+  <img src="assets/diagrams/token-format.svg" alt="Token Format" width="100%"/>
+</p>
+
+### How It Works
+
+1. **Admin** completes Setup Wizard → Portal is running
+2. **Admin** logs in → navigates to "Agents" → clicks "Add Agent"
+3. **Portal** generates a one-time enrollment token (`rkat_<org>_<random>`)
+4. **Admin** copies the install command and runs it on the target server
+5. **Agent** sends token + machine fingerprint to Portal
+6. **Portal** validates token → issues mTLS certificate to agent
+7. **Agent** starts reporting metrics over encrypted channel
+
+### Install Commands (Generated by Portal)
+
+```bash
+# Linux / macOS
+curl -fsSL https://your-portal/api/v1/agent/install | \
+  RAKSHA_TOKEN="rkat_orgname_abc123..." RAKSHA_PORTAL="https://your-portal" bash
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Raksha Security Platform                       │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐   │
-│  │  Web UI   │  │    CLI    │  │  REST API │  │  GraphQL  │   │
-│  │  (React)  │  │  (Rust)   │  │  (Axum)   │  │  (Async)  │   │
-│  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘   │
-│        │               │               │               │         │
-│  ┌─────┴───────────────┴───────────────┴───────────────┴─────┐  │
-│  │                    API Gateway / Auth                       │  │
-│  │                  (JWT + mTLS + RBAC)                        │  │
-│  └─────┬───────────────┬───────────────┬───────────────┬─────┘  │
-│        │               │               │               │         │
-│  ┌─────┴─────┐  ┌─────┴─────┐  ┌─────┴─────┐  ┌─────┴─────┐  │
-│  │  Server   │  │  Network  │  │  Database  │  │ Compliance │  │
-│  │  Monitor  │  │  Scanner  │  │   Guard    │  │   Engine   │  │
-│  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘  │
-│        │               │               │               │         │
-│  ┌─────┴───────────────┴───────────────┴───────────────┴─────┐  │
-│  │                    ML Threat Engine                         │  │
-│  └─────┬─────────────────────────────────────────────────────┘  │
-│        │                                                         │
-│  ┌─────┴─────────────────────────────────────────────────────┐  │
-│  │                    Audit Trail                              │  │
-│  └─────┬─────────────────────────────────────────────────────┘  │
-│        │                                                         │
-│  ┌─────┴─────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐   │
-│  │ PostgreSQL│  │   Redis   │  │   Kafka   │  │    S3     │   │
-│  └───────────┘  └───────────┘  └───────────┘  └───────────┘   │
-│                                                                   │
-└─────────────────────────────────────────────────────────────────┘
+
+```powershell
+# Windows (PowerShell as Administrator)
+$env:RAKSHA_TOKEN="rkat_orgname_abc123..."
+$env:RAKSHA_PORTAL="https://your-portal"
+irm https://your-portal/api/v1/agent/install.ps1 | iex
 ```
+
+### Multi-Tenant Security
+
+Each organization deploys its **own independent Raksha portal** — no shared infrastructure:
+
+| Isolation Layer | Mechanism |
+|----------------|-----------|
+| Portal URL | Hardcoded during enrollment — agent only reports to its portal |
+| mTLS Certificates | Each portal runs its own CA — certs from Portal A rejected by Portal B |
+| Organization ID | Embedded in token prefix (`rkat_<org>_...`) and validated server-side |
+| Fingerprint Binding | machine-id + MAC hash + hostname locked to enrollment record |
+
+### Supported Agent Platforms
+
+| Platform | Architecture | Service Manager |
+|----------|-------------|-----------------|
+| Ubuntu / Debian | x86_64, ARM64 | systemd |
+| RHEL / CentOS / Rocky | x86_64, ARM64 | systemd |
+| Amazon Linux | x86_64, ARM64 | systemd |
+| Alpine Linux | x86_64, ARM64 | OpenRC |
+| macOS | x86_64, Apple Silicon | launchd |
+| Windows Server | x86_64 | Windows Service |
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **Core Engine** | Rust (Axum + Tower) | High-performance security scanning & API |
+| **Web Dashboard** | React + TypeScript + Tailwind | Interactive security dashboard |
+| **ML Engine** | Python + scikit-learn + PyTorch | Threat detection & anomaly models |
+| **Database** | PostgreSQL 16 | Primary data store |
+| **Time-series** | TimescaleDB | Metrics storage |
+| **Cache** | Redis | Session & query caching |
+| **Message Queue** | Apache Kafka | Event streaming |
+| **Object Storage** | S3-compatible | Reports & artifacts |
+| **Container** | Docker + Kubernetes + Helm | Deployment & orchestration |
+
+---
 
 ## Quick Start
 
@@ -85,7 +158,7 @@ docker run -d \
   ghcr.io/dansiapa/raksha:latest
 ```
 
-Or with Docker Compose:
+### Docker Compose
 
 ```bash
 git clone https://github.com/dansiapa/raksha-security-platform.git
@@ -105,11 +178,13 @@ cargo run --bin raksha-migrate
 cargo run --bin raksha-server
 ```
 
-The dashboard will be available at `http://localhost:8080`.
+The Setup Wizard will launch at `http://localhost:8080/setup` on first run.
+
+---
 
 ## Configuration
 
-Raksha uses a layered configuration system. Create a `raksha.toml` in the project root:
+Create `raksha.toml` in the project root:
 
 ```toml
 [server]
@@ -143,148 +218,86 @@ enable_crypto_proof = true
 hash_algorithm = "sha3-256"
 ```
 
-Environment variables override config values with the `RAKSHA_` prefix:
+Environment variables override config with the `RAKSHA_` prefix:
 
 ```bash
 export RAKSHA_DATABASE__URL="postgres://user:pass@host:5432/raksha"
 export RAKSHA_SERVER__PORT=9090
 ```
 
-## Tech Stack
+---
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| Core Engine | Rust | High-performance security scanning |
-| API Server | Axum + Tower | HTTP/gRPC API with middleware |
-| Web Dashboard | React + TypeScript | Interactive security dashboard |
-| ML Engine | Python + scikit-learn | Threat detection models |
-| Database | PostgreSQL | Primary data store |
-| Cache | Redis | Session and query caching |
-| Message Queue | Apache Kafka | Event streaming |
-| Object Storage | S3-compatible | Report and artifact storage |
-| Container | Docker + K8s | Deployment and orchestration |
-
-## Agent Enrollment Token System
-
-Raksha uses a **token-based enrollment** model to securely register agents with the portal. This architecture ensures that only authorized servers can join your monitoring network.
-
-### How It Works
+## Project Structure
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  1. Admin completes Setup Wizard → Portal is running                         │
-│  2. Admin logs in → navigates to "Agents" → clicks "Add Agent"              │
-│  3. Portal generates a one-time enrollment token (rkat_<org>_<random>)       │
-│  4. Admin copies the install command and runs it on the target server        │
-│  5. Agent sends token + machine fingerprint to Portal                        │
-│  6. Portal validates token → issues mTLS certificate to agent               │
-│  7. Agent starts reporting metrics over encrypted channel                    │
-└─────────────────────────────────────────────────────────────────────────────┘
+raksha-security-platform/
++-- apps/
+|   +-- portal/          # Rust API server (Axum)
+|   +-- web/             # React frontend (Next.js)
+|   +-- agent/           # Cross-platform agent (Rust)
+|   +-- cli/             # CLI tool (Rust)
+|   +-- ml-engine/       # ML models (Python)
++-- crates/
+|   +-- raksha-core/     # Shared types and utilities
+|   +-- raksha-auth/     # Authentication and authorization
+|   +-- raksha-alert/    # Alert engine
+|   +-- raksha-audit/    # Audit trail
+|   +-- raksha-compliance/ # Compliance checks
+|   +-- raksha-ml/       # ML integration
+|   +-- raksha-threat-intel/ # Threat intelligence
++-- configs/             # Compliance rules and feed configs
++-- deploy/              # Docker, Helm, packages
++-- docs/                # Documentation
++-- migrations/          # Database migrations
++-- ml/                  # ML training scripts and models
++-- scripts/             # Install scripts
++-- tests/               # E2E, performance, security tests
 ```
 
-### Token Format
-
-```
-rkat_<org_prefix>_<32_hex_chars>
- │      │              │
- │      │              └── Cryptographically random identifier
- │      └── Organization short code (multi-tenant isolation)
- └── Prefix: Raksha Agent Token
-```
-
-### Token Properties
-
-| Property | Default | Description |
-|----------|---------|-------------|
-| `expiry_hours` | 24h | Token becomes invalid after this duration |
-| `max_uses` | 1 | Number of agents that can enroll with this token |
-| `allowed_modules` | all | Which monitoring modules the agent can activate |
-| `labels` | [] | Tags applied to the enrolled agent for grouping |
-
-### Multi-Tenant Security (10+ Companies)
-
-Each organization deploys its **own independent Raksha portal**. There is no shared infrastructure:
-
-```
-Company A  →  Portal A (raksha.company-a.com)  →  DB A  →  CA A
-Company B  →  Portal B (raksha.company-b.com)  →  DB B  →  CA B
-Company C  →  Portal C (security.company-c.io) →  DB C  →  CA C
-```
-
-**Why agents cannot "cross-talk" between portals:**
-
-1. **Portal URL is hardcoded** — The agent stores the portal URL during enrollment and only reports to that address.
-2. **mTLS certificates are portal-specific** — Each portal runs its own Certificate Authority. Certificates from Portal A are rejected by Portal B.
-3. **Organization ID embedded in token** — Tokens contain an org prefix (`rkat_<org>_...`) that is validated server-side.
-4. **Fingerprint binding** — The agent's machine-id, MAC hash, and hostname are locked to the enrollment record.
-
-### Install Commands (Generated by Portal)
-
-**Linux / macOS:**
-```bash
-curl -fsSL https://your-portal/api/v1/agent/install | \
-  RAKSHA_TOKEN="rkat_orgname_abc123..." RAKSHA_PORTAL="https://your-portal" bash
-```
-
-**Windows (PowerShell as Administrator):**
-```powershell
-$env:RAKSHA_TOKEN="rkat_orgname_abc123..."
-$env:RAKSHA_PORTAL="https://your-portal"
-irm https://your-portal/api/v1/agent/install.ps1 | iex
-```
-
-### Supported Platforms
-
-| Platform | Architecture | Service Manager |
-|----------|-------------|-----------------|
-| Ubuntu / Debian | x86_64, ARM64 | systemd |
-| RHEL / CentOS / Rocky | x86_64, ARM64 | systemd |
-| Amazon Linux | x86_64, ARM64 | systemd |
-| Alpine Linux | x86_64, ARM64 | OpenRC |
-| macOS | x86_64, Apple Silicon | launchd |
-| Windows Server | x86_64 | Windows Service |
-
-### Certificate Lifecycle
-
-| Phase | Duration | Action |
-|-------|----------|--------|
-| Issuance | Day 0 | 30-day certificate issued during enrollment |
-| Active | Day 0–23 | Normal operation |
-| Rotation window | Day 23–30 | Agent auto-requests a new certificate |
-| Expiry | Day 30+ | Agent must re-enroll if rotation was missed |
-| Revocation | Any time | Admin can revoke via Dashboard or API |
-
-> For the full enrollment API reference, see [docs/AGENT-ENROLLMENT.md](docs/AGENT-ENROLLMENT.md).
-
-## Screenshots
-
-> 📸 Screenshots coming soon. The dashboard provides real-time visibility into your security posture.
+---
 
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) — System design and component overview
-- [API Reference](docs/API.md) — REST and GraphQL API documentation
-- [Installation Guide](docs/INSTALLATION.md) — Detailed setup instructions
-- [Agent Enrollment](docs/AGENT-ENROLLMENT.md) — Agent setup and enrollment flow
-- [Agent Enrollment](docs/AGENT-ENROLLMENT.md) - Agent setup and enrollment flow
-- [Branching Strategy](docs/BRANCHING.md) - Git flow and branch protection rules
-- [Security Standards](docs/SECURITY-STANDARDS.md) — Supported compliance frameworks
-- [Security Testing](docs/SECURITY-TESTING.md) — Penetration testing playbook
-- [Bug Bounty](docs/BUG-BOUNTY.md) — Community recognition program
+| Document | Description |
+|----------|-------------|
+| [Architecture](docs/ARCHITECTURE.md) | System design and component overview |
+| [API Reference](docs/API.md) | REST and GraphQL API documentation |
+| [Installation Guide](docs/INSTALLATION.md) | Detailed setup instructions |
+| [Agent Enrollment](docs/AGENT-ENROLLMENT.md) | Agent setup and enrollment flow |
+| [Branching Strategy](docs/BRANCHING.md) | Git flow and branch protection rules |
+| [Threat Intelligence](docs/THREAT-INTELLIGENCE.md) | IOC feeds and correlation |
+| [Security Standards](docs/SECURITY-STANDARDS.md) | Supported compliance frameworks |
+| [Security Testing](docs/SECURITY-TESTING.md) | Penetration testing playbook |
+| [Bug Bounty](docs/BUG-BOUNTY.md) | Community recognition program |
+
+---
 
 ## Contributing
 
 We welcome contributions! Please read our [Contributing Guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md) before submitting pull requests.
 
+---
+
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
+
+This is a **fully open-source** project -- free for personal, commercial, and enterprise use.
 
 ---
 
 <p align="center">
-  Made with ❤️ by <strong>NAWALA TEAM</strong> in Indonesia 🇮🇩
+  <img src="assets/images/logo.svg" alt="Raksha" width="48" height="48"/>
 </p>
+
 <p align="center">
-  <em>Part of the Nawala Ecosystem — Sanskrit-inspired tools for modern infrastructure</em>
+  Made with love by <strong>NAWALA TEAM</strong> in Indonesia
+</p>
+
+<p align="center">
+  <sub>Part of the <a href="https://github.com/dansiapa/nawala-gateway-platform">Nawala Ecosystem</a> -- Sanskrit-inspired tools for modern infrastructure</sub>
+</p>
+
+<p align="center">
+  <sub>Contact: <a href="mailto:dummymailrangga@gmail.com">dummymailrangga@gmail.com</a></sub>
 </p>

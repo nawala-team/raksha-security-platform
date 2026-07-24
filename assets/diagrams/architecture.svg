@@ -1,0 +1,97 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="100%" style="stop-color:#1e293b"/>
+    </linearGradient>
+    <linearGradient id="a1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#0ea5e9"/>
+      <stop offset="100%" style="stop-color:#6366f1"/>
+    </linearGradient>
+    <linearGradient id="a3" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#10b981"/>
+      <stop offset="100%" style="stop-color:#22d3ee"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="600" fill="url(#bg)" rx="12"/>
+  <text x="450" y="40" text-anchor="middle" fill="#e2e8f0" font-family="monospace" font-size="15" font-weight="bold">RAKSHA SECURITY PLATFORM - ARCHITECTURE</text>
+  <rect x="50" y="60" width="800" height="70" rx="8" fill="none" stroke="#334155"/>
+  <text x="70" y="82" fill="#64748b" font-family="monospace" font-size="11">CLIENT LAYER</text>
+  <rect x="80" y="90" width="130" height="28" rx="6" fill="url(#a1)" opacity="0.9"/>
+  <text x="145" y="108" text-anchor="middle" fill="white" font-family="monospace" font-size="10">Web Dashboard</text>
+  <rect x="230" y="90" width="110" height="28" rx="6" fill="url(#a1)" opacity="0.9"/>
+  <text x="285" y="108" text-anchor="middle" fill="white" font-family="monospace" font-size="10">CLI Tool</text>
+  <rect x="360" y="90" width="110" height="28" rx="6" fill="url(#a1)" opacity="0.9"/>
+  <text x="415" y="108" text-anchor="middle" fill="white" font-family="monospace" font-size="10">REST API</text>
+  <rect x="490" y="90" width="110" height="28" rx="6" fill="url(#a1)" opacity="0.9"/>
+  <text x="545" y="108" text-anchor="middle" fill="white" font-family="monospace" font-size="10">GraphQL</text>
+  <rect x="620" y="90" width="210" height="28" rx="6" fill="url(#a3)" opacity="0.9"/>
+  <text x="725" y="108" text-anchor="middle" fill="white" font-family="monospace" font-size="10">Remote Agents (mTLS)</text>
+  <g stroke="#0ea5e9" stroke-width="1.5" opacity="0.6">
+    <line x1="145" y1="118" x2="145" y2="155"/>
+    <line x1="285" y1="118" x2="285" y2="155"/>
+    <line x1="415" y1="118" x2="415" y2="155"/>
+    <line x1="545" y1="118" x2="545" y2="155"/>
+    <line x1="725" y1="118" x2="725" y2="155"/>
+  </g>
+  <circle cx="145" cy="137" r="3" fill="#22d3ee"><animate attributeName="cy" values="118;155;118" dur="2s" repeatCount="indefinite"/></circle>
+  <circle cx="415" cy="137" r="3" fill="#22d3ee"><animate attributeName="cy" values="118;155;118" dur="1.8s" repeatCount="indefinite"/></circle>
+  <circle cx="725" cy="137" r="3" fill="#10b981"><animate attributeName="cy" values="118;155;118" dur="1.5s" repeatCount="indefinite"/></circle>
+  <rect x="50" y="155" width="800" height="45" rx="8" fill="#6366f1" opacity="0.15" stroke="#6366f1"/>
+  <text x="450" y="180" text-anchor="middle" fill="#a5b4fc" font-family="monospace" font-size="12" font-weight="bold">API GATEWAY | JWT + mTLS + RBAC + Rate Limiting (Axum + Tower)</text>
+  <rect x="50" y="220" width="800" height="120" rx="8" fill="none" stroke="#334155"/>
+  <text x="70" y="242" fill="#64748b" font-family="monospace" font-size="11">CORE SERVICES</text>
+  <rect x="70" y="250" width="140" height="35" rx="6" fill="#0f172a" stroke="#0ea5e9"/>
+  <text x="140" y="272" text-anchor="middle" fill="#0ea5e9" font-family="monospace" font-size="10">Server Monitor</text>
+  <rect x="225" y="250" width="140" height="35" rx="6" fill="#0f172a" stroke="#0ea5e9"/>
+  <text x="295" y="272" text-anchor="middle" fill="#0ea5e9" font-family="monospace" font-size="10">Network Scanner</text>
+  <rect x="380" y="250" width="140" height="35" rx="6" fill="#0f172a" stroke="#0ea5e9"/>
+  <text x="450" y="272" text-anchor="middle" fill="#0ea5e9" font-family="monospace" font-size="10">Database Guard</text>
+  <rect x="535" y="250" width="140" height="35" rx="6" fill="#0f172a" stroke="#8b5cf6"/>
+  <text x="605" y="272" text-anchor="middle" fill="#8b5cf6" font-family="monospace" font-size="10">Compliance</text>
+  <rect x="690" y="250" width="140" height="35" rx="6" fill="#0f172a" stroke="#10b981"/>
+  <text x="760" y="272" text-anchor="middle" fill="#10b981" font-family="monospace" font-size="10">Audit Trail</text>
+  <rect x="70" y="295" width="195" height="28" rx="5" fill="#0f172a" stroke="#f59e0b"/>
+  <text x="167" y="313" text-anchor="middle" fill="#f59e0b" font-family="monospace" font-size="9">Alert Engine (WS+Email+Slack)</text>
+  <rect x="280" y="295" width="195" height="28" rx="5" fill="#0f172a" stroke="#ef4444"/>
+  <text x="377" y="313" text-anchor="middle" fill="#ef4444" font-family="monospace" font-size="9">Threat Intel (IOC Feeds)</text>
+  <rect x="490" y="295" width="160" height="28" rx="5" fill="#0f172a" stroke="#22d3ee"/>
+  <text x="570" y="313" text-anchor="middle" fill="#22d3ee" font-family="monospace" font-size="9">User Mgmt (RBAC)</text>
+  <rect x="665" y="295" width="160" height="28" rx="5" fill="#0f172a" stroke="#10b981"/>
+  <text x="745" y="313" text-anchor="middle" fill="#10b981" font-family="monospace" font-size="9">Agent Enrollment</text>
+  <rect x="50" y="360" width="800" height="55" rx="8" fill="#8b5cf6" opacity="0.1" stroke="#8b5cf6"/>
+  <text x="70" y="382" fill="#8b5cf6" font-family="monospace" font-size="11">ML THREAT ENGINE</text>
+  <rect x="80" y="390" width="160" height="18" rx="4" fill="#1e1b4b"/>
+  <text x="160" y="403" text-anchor="middle" fill="#c4b5fd" font-family="monospace" font-size="9">Anomaly (IForest)</text>
+  <rect x="260" y="390" width="160" height="18" rx="4" fill="#1e1b4b"/>
+  <text x="340" y="403" text-anchor="middle" fill="#c4b5fd" font-family="monospace" font-size="9">Network (CNN)</text>
+  <rect x="440" y="390" width="160" height="18" rx="4" fill="#1e1b4b"/>
+  <text x="520" y="403" text-anchor="middle" fill="#c4b5fd" font-family="monospace" font-size="9">Prediction (LSTM)</text>
+  <rect x="620" y="390" width="210" height="18" rx="4" fill="#1e1b4b"/>
+  <text x="725" y="403" text-anchor="middle" fill="#c4b5fd" font-family="monospace" font-size="9">Auto-Training Pipeline</text>
+  <rect x="50" y="360" width="0" height="55" rx="8" fill="#8b5cf6" opacity="0.05">
+    <animate attributeName="width" values="0;800;0" dur="6s" repeatCount="indefinite"/>
+  </rect>
+  <rect x="50" y="435" width="800" height="50" rx="8" fill="none" stroke="#334155"/>
+  <text x="70" y="457" fill="#64748b" font-family="monospace" font-size="11">DATA LAYER</text>
+  <rect x="80" y="465" width="120" height="16" rx="4" fill="#134e4a" stroke="#10b981"/>
+  <text x="140" y="477" text-anchor="middle" fill="#10b981" font-family="monospace" font-size="9">PostgreSQL 16</text>
+  <rect x="220" y="465" width="100" height="16" rx="4" fill="#4c0519" stroke="#ef4444"/>
+  <text x="270" y="477" text-anchor="middle" fill="#f87171" font-family="monospace" font-size="9">Redis</text>
+  <rect x="340" y="465" width="120" height="16" rx="4" fill="#1e1b4b" stroke="#6366f1"/>
+  <text x="400" y="477" text-anchor="middle" fill="#a5b4fc" font-family="monospace" font-size="9">Apache Kafka</text>
+  <rect x="480" y="465" width="100" height="16" rx="4" fill="#172554" stroke="#3b82f6"/>
+  <text x="530" y="477" text-anchor="middle" fill="#93c5fd" font-family="monospace" font-size="9">S3 Storage</text>
+  <rect x="600" y="465" width="120" height="16" rx="4" fill="#0c4a6e" stroke="#0ea5e9"/>
+  <text x="660" y="477" text-anchor="middle" fill="#67e8f9" font-family="monospace" font-size="9">TimescaleDB</text>
+  <rect x="50" y="505" width="800" height="40" rx="8" fill="none" stroke="#334155"/>
+  <text x="70" y="530" fill="#64748b" font-family="monospace" font-size="11">INFRA</text>
+  <text x="200" y="530" fill="#94a3b8" font-family="monospace" font-size="10">Docker</text>
+  <text x="340" y="530" fill="#94a3b8" font-family="monospace" font-size="10">Kubernetes</text>
+  <text x="500" y="530" fill="#94a3b8" font-family="monospace" font-size="10">Helm Charts</text>
+  <text x="670" y="530" fill="#94a3b8" font-family="monospace" font-size="10">CI/CD Pipeline</text>
+  <circle cx="840" cy="40" r="5" fill="#10b981">
+    <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite"/>
+  </circle>
+  <text x="825" y="44" text-anchor="end" fill="#10b981" font-family="monospace" font-size="9">LIVE</text>
+</svg>

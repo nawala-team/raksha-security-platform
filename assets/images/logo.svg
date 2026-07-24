@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#6366f1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="innerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#22d3ee;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0ea5e9;stop-opacity:1" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#0ea5e9" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="#0f172a" stroke="url(#shieldGrad)" stroke-width="3" filter="url(#shadow)"/>
+  
+  <!-- Shield body -->
+  <path d="M256 72 L400 140 L400 280 C400 360 340 420 256 448 C172 420 112 360 112 280 L112 140 Z" 
+        fill="url(#shieldGrad)" opacity="0.9" filter="url(#shadow)"/>
+  
+  <!-- Shield inner -->
+  <path d="M256 100 L376 158 L376 272 C376 340 324 392 256 416 C188 392 136 340 136 272 L136 158 Z" 
+        fill="#0f172a" opacity="0.85"/>
+  
+  <!-- Trident symbol (Raksha) -->
+  <g fill="url(#innerGrad)" filter="url(#glow)">
+    <!-- Center prong -->
+    <rect x="248" y="160" width="16" height="140" rx="4"/>
+    <!-- Center tip -->
+    <polygon points="256,140 244,170 268,170"/>
+    <!-- Left prong -->
+    <rect x="208" y="185" width="12" height="90" rx="4" transform="rotate(-15 214 230)"/>
+    <polygon points="210,168 200,195 220,195" transform="rotate(-15 210 182)"/>
+    <!-- Right prong -->
+    <rect x="292" y="185" width="12" height="90" rx="4" transform="rotate(15 298 230)"/>
+    <polygon points="302,168 292,195 312,195" transform="rotate(15 302 182)"/>
+    <!-- Cross bar -->
+    <rect x="196" y="245" width="120" height="10" rx="5"/>
+    <!-- Handle -->
+    <rect x="250" y="300" width="12" height="60" rx="6"/>
+    <!-- Base -->
+    <ellipse cx="256" cy="370" rx="30" ry="10"/>
+  </g>
+  
+  <!-- Scanning rings animation -->
+  <circle cx="256" cy="256" r="100" fill="none" stroke="#22d3ee" stroke-width="1" opacity="0.4">
+    <animate attributeName="r" values="100;180;100" dur="4s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.4;0;0.4" dur="4s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="256" cy="256" r="140" fill="none" stroke="#6366f1" stroke-width="1" opacity="0.3">
+    <animate attributeName="r" values="140;210;140" dur="5s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.3;0;0.3" dur="5s" repeatCount="indefinite"/>
+  </circle>
+</svg>
