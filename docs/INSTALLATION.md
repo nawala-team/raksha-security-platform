@@ -54,7 +54,7 @@ docker run -d \
 ### Production (Docker Compose)
 
 ```bash
-git clone https://github.com/nawala-team/raksha-security-platform.git
+git clone https://github.com/dansiapa/raksha-security-platform.git
 cd raksha-security-platform
 
 # Copy and configure environment
@@ -99,7 +99,7 @@ curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 
 # 4. Clone and build
-git clone https://github.com/nawala-team/raksha-security-platform.git
+git clone https://github.com/dansiapa/raksha-security-platform.git
 cd raksha-security-platform
 npm install
 cargo build --release
@@ -135,7 +135,7 @@ brew services start postgresql@16
 brew services start redis
 
 # 5. Clone and build
-git clone https://github.com/nawala-team/raksha-security-platform.git
+git clone https://github.com/dansiapa/raksha-security-platform.git
 cd raksha-security-platform
 npm install
 cargo build --release
@@ -243,3 +243,47 @@ cargo build --release
 ---
 
 *Part of the Nawala Ecosystem* 🔱
+
+## Agent Installation
+
+After the portal is running and setup wizard is completed, you can install agents on target servers.
+
+### Linux / macOS
+
+From the Portal UI: Navigate to **Dashboard → Agents → Add Agent**, then copy the generated command:
+
+```bash
+curl -fsSL https://your-portal/api/v1/agent/install | \
+  RAKSHA_TOKEN="rkat_xxxxxxxx_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  RAKSHA_PORTAL="https://your-portal" bash
+```
+
+### Windows (PowerShell as Administrator)
+
+```powershell
+$env:RAKSHA_TOKEN="rkat_xxxxxxxx_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+$env:RAKSHA_PORTAL="https://your-portal"
+irm https://your-portal/api/v1/agent/install.ps1 | iex
+```
+
+### What the installer does
+
+1. Validates the enrollment token format
+2. Detects OS, architecture, and init system
+3. Collects machine fingerprint (hostname, machine-id, MAC hash)
+4. Downloads the agent binary from portal (or GitHub fallback)
+5. Sends enrollment request to portal with token + fingerprint
+6. Receives agent config and stores it at `/etc/raksha/agent.toml`
+7. Installs and starts system service (systemd/launchd/openrc/Windows Service)
+
+### Verifying agent enrollment
+
+```bash
+# Check service status
+systemctl status raksha-agent
+
+# View logs
+journalctl -u raksha-agent -f
+
+# Or check in Portal UI → Agents page
+```

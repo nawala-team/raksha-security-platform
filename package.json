@@ -11,10 +11,10 @@
     "threat-detection",
     "nawala"
   ],
-  "homepage": "https://raksha.nawala.dev",
+  "homepage": "https://github.com/dansiapa/raksha-security-platform",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nawala-team/raksha-security-platform.git"
+    "url": "https://github.com/dansiapa/raksha-security-platform.git"
   },
   "license": "MIT",
   "author": "NAWALA TEAM",
