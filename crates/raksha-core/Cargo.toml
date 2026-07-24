@@ -18,3 +18,4 @@ validator = { workspace = true }
 sqlx = { workspace = true }
 deadpool-redis = { workspace = true }
 tokio = { workspace = true }
+reqwest = { version = "0.12", features = ["json"] }

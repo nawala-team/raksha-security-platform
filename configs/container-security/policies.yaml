@@ -1,0 +1,108 @@
+## Raksha Container Security Policies
+## ====================================
+## This file defines container security policies enforced by the
+## Raksha admission webhook and agent container collector.
+
+apiVersion: raksha.security/v1
+kind: ContainerSecurityPolicy
+metadata:
+  name: raksha-default-policy
+  namespace: raksha-system
+spec:
+  ## Allowed container image registries
+  allowedRegistries:
+    - ghcr.io/raksha-security
+    - docker.io/library
+    - gcr.io/distroless
+    - registry.k8s.io
+    - quay.io
+
+  ## Denied image tags
+  deniedTags:
+    - latest
+    - dev
+    - nightly
+
+  ## Required pod/container labels
+  requiredLabels:
+    - key: app.kubernetes.io/name
+      description: "Application name is required"
+    - key: app.kubernetes.io/version
+      description: "Application version is required"
+    - key: app.kubernetes.io/managed-by
+      description: "Management tool label is required"
+
+  ## Resource limits enforcement
+  resourceLimits:
+    enforceRequestsAndLimits: true
+    maxCpu: "4"
+    maxMemory: 8Gi
+    defaultRequests:
+      cpu: 100m
+      memory: 128Mi
+    defaultLimits:
+      cpu: "1"
+      memory: 1Gi
+
+  ## Security context requirements
+  securityContext:
+    runAsNonRoot: true
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    requiredDropCapabilities:
+      - ALL
+    allowedCapabilities: []
+    forbiddenSysctls:
+      - kernel.*
+      - net.*
+
+  ## Host namespace restrictions
+  hostRestrictions:
+    allowHostNetwork: false
+    allowHostPID: false
+    allowHostIPC: false
+    forbiddenHostPaths:
+      - /etc/shadow
+      - /etc/passwd
+      - /root
+      - /var/run/docker.sock
+      - /var/run/containerd/containerd.sock
+      - /proc
+      - /sys
+      - /dev
+
+  ## Volume type restrictions
+  allowedVolumeTypes:
+    - configMap
+    - emptyDir
+    - persistentVolumeClaim
+    - secret
+    - projected
+    - downwardAPI
+
+  ## Network policies
+  networkPolicy:
+    defaultDeny: true
+    allowDNS: true
+    allowedEgressPorts:
+      - 443
+      - 8443
+      - 5432
+      - 6379
+
+  ## Runtime monitoring
+  runtimeMonitoring:
+    detectExecInContainer: true
+    detectPrivilegeEscalation: true
+    detectSensitiveFileAccess: true
+    alertOnNewProcess: false
+    monitorNetworkConnections: true
+
+  ## Compliance
+  compliance:
+    standards:
+      - CIS-Kubernetes-Benchmark-v1.8
+      - NIST-SP-800-190
+      - PCI-DSS-v4.0
+    auditInterval: 24h
+    reportFormat: json

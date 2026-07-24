@@ -19,6 +19,9 @@ import {
   Bot,
   Globe,
   Bug,
+  Siren,
+  Radar,
+  Container,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -26,12 +29,15 @@ import { Separator } from "@/components/ui/separator";
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Alerts", href: "/dashboard/alerts", icon: AlertTriangle },
+  { name: "Incidents", href: "/dashboard/incidents", icon: Siren },
   { name: "Servers", href: "/dashboard/servers", icon: Server },
+  { name: "Containers", href: "/dashboard/containers", icon: Container },
   { name: "Network", href: "/dashboard/network", icon: Network },
   { name: "Database", href: "/dashboard/database", icon: Database },
   { name: "FIM", href: "/dashboard/fim", icon: FileSearch },
   { name: "Agents", href: "/dashboard/agents", icon: Bot },
   { name: "Threat Intel", href: "/dashboard/threat-intel", icon: Globe },
+  { name: "Attack Surface", href: "/dashboard/attack-surface", icon: Radar },
   { name: "Vulnerabilities", href: "/dashboard/vulnerabilities", icon: Bug },
   { name: "Compliance", href: "/dashboard/compliance", icon: ClipboardCheck },
   { name: "Audit Trail", href: "/dashboard/audit", icon: ScrollText },

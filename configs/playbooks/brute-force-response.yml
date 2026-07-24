@@ -1,0 +1,73 @@
+---
+id: brute-force-response
+name: Brute Force Attack Response
+description: Response playbook for detected brute force or credential stuffing attacks
+version: "1.0"
+trigger_conditions:
+  - alert_types:
+      - brute_force
+      - credential_stuffing
+      - login_anomaly
+    min_severity: medium
+    keywords:
+      - failed login
+      - brute force
+      - multiple attempts
+      - account lockout
+tags:
+  - authentication
+  - brute-force
+  - credentials
+
+steps:
+  - order: 1
+    title: Identify Attack Source
+    description: Determine source IPs, targeted accounts, and attack timeline from authentication logs.
+    action_type: automated
+    command: "raksha-agent analyze-auth --type brute-force --incident ${INCIDENT_ID}"
+    timeout_secs: 120
+    fail_fast: false
+
+  - order: 2
+    title: Block Attacker IPs
+    description: Add source IPs to firewall blocklist and WAF deny rules.
+    action_type: automated
+    command: "raksha-agent block-ips --source auth-logs --incident ${INCIDENT_ID}"
+    timeout_secs: 60
+    fail_fast: false
+
+  - order: 3
+    title: Lock Targeted Accounts
+    description: Temporarily lock accounts that were targeted to prevent unauthorized access.
+    action_type: approval
+    timeout_secs: 300
+    fail_fast: true
+
+  - order: 4
+    title: Check for Successful Compromise
+    description: Review if any targeted accounts had successful logins during the attack window. Check for post-auth anomalies.
+    action_type: manual
+    timeout_secs: 1800
+    fail_fast: false
+
+  - order: 5
+    title: Force Password Reset
+    description: Force password reset for any accounts with successful attacker logins. Revoke active sessions.
+    action_type: automated
+    command: "raksha-agent reset-compromised --incident ${INCIDENT_ID}"
+    timeout_secs: 300
+    fail_fast: false
+
+  - order: 6
+    title: Update Rate Limiting
+    description: Review and tighten rate limiting rules on authentication endpoints.
+    action_type: manual
+    timeout_secs: 1800
+    fail_fast: false
+
+  - order: 7
+    title: Document and Close
+    description: Document attack details, update threat intelligence feeds, and close the incident.
+    action_type: manual
+    timeout_secs: 3600
+    fail_fast: false

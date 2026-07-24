@@ -1,0 +1,97 @@
+---
+id: data-breach-response
+name: Data Breach Response
+description: Response playbook for confirmed or suspected unauthorized data access or exfiltration
+version: "1.0"
+trigger_conditions:
+  - alert_types:
+      - data_breach
+      - data_exfiltration
+      - unauthorized_access
+      - dlp_violation
+    min_severity: high
+    keywords:
+      - data leak
+      - exfiltration
+      - unauthorized access
+      - sensitive data
+      - PII
+      - data breach
+tags:
+  - data-breach
+  - exfiltration
+  - compliance
+  - critical
+
+steps:
+  - order: 1
+    title: Confirm Data Breach Scope
+    description: Identify what data was accessed or exfiltrated, which systems were involved, and the timeframe of unauthorized access.
+    action_type: manual
+    timeout_secs: 1800
+    fail_fast: false
+
+  - order: 2
+    title: Contain the Breach
+    description: Revoke compromised credentials, disable affected service accounts, and block exfiltration channels.
+    action_type: automated
+    command: "raksha-agent contain-breach --incident ${INCIDENT_ID} --revoke-access"
+    timeout_secs: 300
+    fail_fast: true
+
+  - order: 3
+    title: Preserve Evidence
+    description: Capture full audit logs, network flow data, and system snapshots for forensic analysis and potential legal proceedings.
+    action_type: automated
+    command: "raksha-agent collect-evidence --incident ${INCIDENT_ID} --full-capture"
+    timeout_secs: 900
+    fail_fast: false
+
+  - order: 4
+    title: Classify Affected Data
+    description: Determine data classification levels (PII, PHI, financial, intellectual property) and volume of records affected.
+    action_type: manual
+    timeout_secs: 3600
+    fail_fast: false
+
+  - order: 5
+    title: Legal and Compliance Review
+    description: Engage legal counsel. Determine regulatory notification obligations (GDPR 72h, HIPAA, state breach notification laws).
+    action_type: approval
+    timeout_secs: 7200
+    fail_fast: false
+
+  - order: 6
+    title: Executive and Board Notification
+    description: Brief CISO, CEO, and board as required. Prepare public communications strategy if needed.
+    action_type: approval
+    timeout_secs: 3600
+    fail_fast: false
+
+  - order: 7
+    title: Regulatory Notification
+    description: File required notifications with regulatory authorities within mandated timeframes.
+    action_type: manual
+    timeout_secs: 86400
+    fail_fast: false
+
+  - order: 8
+    title: Affected Party Notification
+    description: Notify affected individuals per regulatory requirements. Provide identity protection services if applicable.
+    action_type: approval
+    timeout_secs: 86400
+    fail_fast: false
+
+  - order: 9
+    title: Remediation and Hardening
+    description: Patch vulnerabilities exploited, implement additional access controls, and update DLP policies.
+    action_type: manual
+    timeout_secs: 172800
+    fail_fast: false
+
+  - order: 10
+    title: Post-Incident Review
+    description: Conduct full post-mortem, update incident response plan, and implement preventive measures.
+    action_type: manual
+    timeout_secs: 604800
+    fail_fast: false

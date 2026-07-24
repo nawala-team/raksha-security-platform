@@ -1,0 +1,35 @@
+{{- $fullName := include "raksha.fullname" . -}}
+{{- $labels := include "raksha.labels" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullName }}-config
+  labels:
+    {{- $labels | nindent 4 }}
+data:
+  ## Portal Configuration
+  LOG_LEVEL: {{ .Values.portal.env.LOG_LEVEL | quote }}
+  DATABASE_POOL_SIZE: {{ .Values.portal.env.DATABASE_POOL_SIZE | quote }}
+  REDIS_URL: {{ .Values.portal.env.REDIS_URL | quote }}
+  PORTAL_PORT: {{ .Values.portal.service.port | quote }}
+  ML_ENGINE_URL: "http://{{ $fullName }}-ml:{{ .Values.ml.service.port }}"
+  WEB_URL: "http://{{ $fullName }}-web:{{ .Values.web.service.port }}"
+
+  ## SIEM Integration
+  SIEM_ENABLED: "true"
+  SIEM_PROTOCOL: "syslog"
+  SIEM_FORMAT: "CEF"
+
+  ## Container Security Policy
+  CONTAINER_POLICY_ENFORCE: "true"
+  ALLOWED_REGISTRIES: "ghcr.io/raksha-security,docker.io/library"
+  REQUIRE_NON_ROOT: "true"
+  REQUIRE_READONLY_FS: "true"
+  BLOCK_PRIVILEGED: "true"
+  BLOCK_LATEST_TAG: "true"
+
+  ## Telemetry
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+  OTEL_SERVICE_NAME: "raksha-portal"
+  METRICS_ENABLED: "true"
+  METRICS_PATH: "/metrics"

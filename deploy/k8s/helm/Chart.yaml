@@ -1,0 +1,25 @@
+apiVersion: v2
+name: raksha-security-platform
+description: Raksha Security Platform - Endpoint Detection & Response with Container Security
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - security
+  - edr
+  - container-security
+  - admission-webhook
+  - siem
+home: https://github.com/raksha-security/raksha-platform
+maintainers:
+  - name: Raksha Security Team
+    email: infra@raksha.security
+dependencies:
+  - name: postgresql
+    version: "~13.2"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: redis
+    version: "~18.0"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled

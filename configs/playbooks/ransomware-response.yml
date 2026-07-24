@@ -1,0 +1,77 @@
+---
+id: ransomware-response
+name: Ransomware Incident Response
+description: Step-by-step response playbook for confirmed or suspected ransomware infections
+version: "1.0"
+trigger_conditions:
+  - alert_types:
+      - ransomware
+      - malware
+    min_severity: high
+    keywords:
+      - encrypt
+      - ransom
+      - locked files
+      - bitcoin
+tags:
+  - ransomware
+  - malware
+  - critical
+
+steps:
+  - order: 1
+    title: Isolate Affected Systems
+    description: Immediately disconnect affected hosts from the network to prevent lateral movement. Disable WiFi and unplug ethernet cables.
+    action_type: manual
+    timeout_secs: 300
+    fail_fast: true
+
+  - order: 2
+    title: Identify Ransomware Variant
+    description: Collect ransom note, encrypted file samples, and check against known ransomware databases (ID Ransomware, No More Ransom).
+    action_type: manual
+    timeout_secs: 600
+    fail_fast: false
+
+  - order: 3
+    title: Preserve Forensic Evidence
+    description: Create disk images of affected systems before any remediation. Capture memory dumps and network logs.
+    action_type: manual
+    timeout_secs: 1800
+    fail_fast: false
+
+  - order: 4
+    title: Block C2 Communication
+    description: Block known C2 IPs and domains at the firewall level. Update DNS sinkholes.
+    action_type: automated
+    command: "raksha-agent block-iocs --type c2 --incident ${INCIDENT_ID}"
+    timeout_secs: 120
+    fail_fast: false
+
+  - order: 5
+    title: Assess Blast Radius
+    description: Determine which systems, data, and services are affected. Check backup integrity.
+    action_type: manual
+    timeout_secs: 3600
+    fail_fast: false
+
+  - order: 6
+    title: Executive Notification
+    description: Notify CISO and executive team. Prepare initial impact assessment briefing.
+    action_type: approval
+    timeout_secs: 900
+    fail_fast: false
+
+  - order: 7
+    title: Begin Recovery
+    description: Restore from clean backups. Rebuild affected systems from known-good images. Verify integrity before reconnection.
+    action_type: manual
+    timeout_secs: 7200
+    fail_fast: false
+
+  - order: 8
+    title: Post-Incident Review
+    description: Document lessons learned, update detection rules, and strengthen preventive controls.
+    action_type: manual
+    timeout_secs: 86400
+    fail_fast: false
