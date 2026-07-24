@@ -124,6 +124,5 @@ class NetworkAnalyzer:
         analyzer.scaler = data["scaler"]
         analyzer.baseline_stats = data["baseline_stats"]
         analyzer.is_fitted = True
+        logger.info("network_analyzer_loaded")
         return analyzer
-
-        logger.info("network_analyzer_trained")

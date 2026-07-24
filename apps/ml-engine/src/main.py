@@ -54,7 +54,7 @@ app = FastAPI(
     description="Security anomaly detection and threat intelligence ML platform",
     version="0.1.0",
     lifespan=lifespan,
-
+)
 
 
 # --- Request/Response Models ---
@@ -89,8 +89,6 @@ class HealthResponse(BaseModel):
     status: str
     models_loaded: list[str]
     version: str
-
-)
 
 
 

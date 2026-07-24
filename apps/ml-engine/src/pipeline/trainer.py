@@ -161,5 +161,3 @@ class TrainingPipeline:
 
         logger.info("optimization_complete", best_params=study.best_params)
         return study.best_params
-
-            return {"success": False, "error": str(e)}
