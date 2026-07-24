@@ -99,6 +99,11 @@ class Autoencoder:
         import torch
 
         self.model.eval()
+        with torch.no_grad():
+            tensor_x = torch.FloatTensor(X)
+            reconstructed = self.model(tensor_x)
+            errors = torch.mean((tensor_x - reconstructed) ** 2, dim=1).numpy()
+        return errors
 
 
 class AnomalyDetector:
@@ -221,9 +226,3 @@ class AnomalyDetector:
         detector.is_fitted = True
         logger.info("anomaly_detector_loaded", path=model_dir)
         return detector
-
-        with torch.no_grad():
-            tensor_x = torch.FloatTensor(X)
-            reconstructed = self.model(tensor_x)
-            errors = torch.mean((tensor_x - reconstructed) ** 2, dim=1).numpy()
-        return errors
