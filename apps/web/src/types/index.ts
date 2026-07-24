@@ -131,7 +131,7 @@ export interface EnrollmentToken {
   createdBy: string;
 }
 
-
+export interface SecurityScore {
   overall: number;
   categories: {
     network: number;

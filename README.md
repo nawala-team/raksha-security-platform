@@ -29,7 +29,11 @@ Part of the **Nawala Ecosystem** — a suite of security and infrastructure tool
 | 🗄️ **Database Guard** | Database security auditing, access monitoring, and encryption verification |
 | 📋 **Compliance Engine** | Automated compliance checking against CIS, NIST, PCI-DSS, ISO 27001 |
 | 🤖 **ML Threat Detection** | Machine learning-powered anomaly detection and threat prediction |
+| 🌍 **Threat Intelligence** | Auto-syncing IOC feeds from CISA, MITRE, Abuse.ch, OTX, NVD |
 | 📝 **Audit Trail** | Immutable audit logging with cryptographic verification |
+| 🔔 **Real-time Alerts** | WebSocket-based live alerting with Email, Slack, and Webhook notifications |
+| 👥 **User Management** | RBAC with Admin, Analyst, Operator, Viewer roles and privilege control |
+| 🕵️ **Agent System** | Cross-platform agents with mTLS enrollment and FIM |
 
 ## Architecture
 
@@ -170,7 +174,10 @@ export RAKSHA_SERVER__PORT=9090
 - [API Reference](docs/API.md) — REST and GraphQL API documentation
 - [Installation Guide](docs/INSTALLATION.md) — Detailed setup instructions
 - [Agent Enrollment](docs/AGENT-ENROLLMENT.md) — Agent setup and enrollment flow
+- [Threat Intelligence](docs/THREAT-INTELLIGENCE.md) — IOC feeds and correlation
 - [Security Standards](docs/SECURITY-STANDARDS.md) — Supported compliance frameworks
+- [Security Testing](docs/SECURITY-TESTING.md) — Penetration testing playbook
+- [Bug Bounty](docs/BUG-BOUNTY.md) — Community recognition program
 
 ## Contributing
 

@@ -22,6 +22,7 @@ pub struct AppState {
     pub compliance_checker: ComplianceChecker,
     pub anomaly_detector: Arc<AnomalyDetector>,
     pub risk_scorer: Arc<RiskScorer>,
+    pub realtime_hub: crate::handlers::websocket::RealtimeHub,
     pub config: Arc<AppConfig>,
 }
 
@@ -57,6 +58,7 @@ impl AppState {
             compliance_checker,
             anomaly_detector,
             risk_scorer,
+            realtime_hub: crate::handlers::websocket::RealtimeHub::new(1024),
             config: Arc::new(config.clone()),
         })
     }

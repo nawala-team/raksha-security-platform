@@ -7,8 +7,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY apps/ml-engine/requirements.txt ./
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+COPY ml/pyproject.toml ./
+RUN pip install --no-cache-dir --prefix=/install .
 
 # ─── Stage 2: Runtime ────────────────────────────────────────────────
 FROM python:3.12-slim AS runtime
@@ -24,7 +24,7 @@ RUN groupadd -r raksha && useradd -r -g raksha -d /app -s /sbin/nologin raksha
 WORKDIR /app
 
 COPY --from=builder /install /usr/local
-COPY apps/ml-engine/src/ ./src/
+COPY ml/src/ ./src/
 
 RUN mkdir -p /data/models && chown -R raksha:raksha /app /data
 
@@ -33,4 +33,4 @@ USER raksha
 EXPOSE 8000
 
 ENTRYPOINT ["tini", "--"]
-CMD ["python", "-m", "src.main"]
+CMD ["uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "8000"]

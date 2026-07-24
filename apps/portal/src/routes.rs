@@ -41,6 +41,8 @@ pub fn build_router(state: AppState) -> Router {
         .route("/agents/{agent_id}/rotate-certificate", axum::routing::post(handlers::enrollment::rotate_certificate))
         .nest("/compliance", handlers::compliance::routes())
         .nest("/audit", handlers::audit::routes())
+        .nest("/threat-intel", handlers::threat_intel::routes())
+        .nest("/databases", handlers::database::routes())
         .layer(axum_middleware::from_fn_with_state(
             state.clone(),
             auth_layer,
@@ -49,7 +51,8 @@ pub fn build_router(state: AppState) -> Router {
     // Combine all routes under /api/v1
     let api = Router::new()
         .merge(public_routes)
-        .merge(protected_routes);
+        .merge(protected_routes)
+        .merge(handlers::websocket::ws_routes());
 
     Router::new()
         .nest("/api/v1", api)

@@ -16,6 +16,7 @@ import {
   Settings,
   LogOut,
   Bot,
+  Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -27,6 +28,7 @@ const navigation = [
   { name: "Network", href: "/dashboard/network", icon: Network },
   { name: "Database", href: "/dashboard/database", icon: Database },
   { name: "Agents", href: "/dashboard/agents", icon: Bot },
+  { name: "Threat Intel", href: "/dashboard/threat-intel", icon: Globe },
   { name: "Compliance", href: "/dashboard/compliance", icon: ClipboardCheck },
   { name: "Audit Trail", href: "/dashboard/audit", icon: ScrollText },
   { name: "Users", href: "/dashboard/users", icon: Users },

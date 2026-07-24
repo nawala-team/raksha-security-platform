@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { RealtimeNotifications } from "@/components/notifications/realtime-notifications";
 
 export default function DashboardLayout({
   children,
@@ -13,6 +14,7 @@ export default function DashboardLayout({
         <Header />
         <main className="p-6">{children}</main>
       </div>
+      <RealtimeNotifications />
     </div>
   );
 }
