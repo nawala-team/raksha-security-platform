@@ -1,0 +1,25 @@
+# Default configuration for Raksha Security Platform
+
+[server]
+host = "0.0.0.0"
+port = 8080
+
+[database]
+url = "postgres://raksha:raksha_dev@localhost:5432/raksha_platform"
+max_connections = 10
+min_connections = 2
+
+[redis]
+url = "redis://localhost:6379"
+pool_size = 10
+
+[jwt]
+secret = "dev-only-change-in-production"
+access_token_ttl_secs = 900
+refresh_token_ttl_secs = 604800
+issuer = "raksha-platform"
+
+[app]
+name = "Raksha Security Platform"
+environment = "development"
+log_level = "debug"

@@ -1,0 +1,157 @@
+# ─── Raksha Platform Helm Values ─────────────────────────────────────
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# ─── Portal (API server) ─────────────────────────────────────────────
+portal:
+  replicaCount: 2
+  image:
+    repository: raksha/portal
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  env:
+    RUST_LOG: info
+    PORTAL_HOST: "0.0.0.0"
+    PORTAL_PORT: "8080"
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# ─── Web (Next.js frontend) ──────────────────────────────────────────
+web:
+  replicaCount: 2
+  image:
+    repository: raksha/web
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  env:
+    NODE_ENV: production
+
+# ─── ML Engine ────────────────────────────────────────────────────────
+mlEngine:
+  replicaCount: 1
+  image:
+    repository: raksha/ml-engine
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+
+# ─── Agent (DaemonSet) ────────────────────────────────────────────────
+agent:
+  image:
+    repository: raksha/agent
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  tolerations:
+    - effect: NoSchedule
+      operator: Exists
+
+# ─── Ingress ──────────────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+  hosts:
+    - host: raksha.example.com
+      paths:
+        - path: /api
+          pathType: Prefix
+          service: portal
+          port: 8080
+        - path: /
+          pathType: Prefix
+          service: web
+          port: 3000
+  tls:
+    - secretName: raksha-tls
+      hosts:
+        - raksha.example.com
+
+# ─── PostgreSQL (Bitnami subchart) ────────────────────────────────────
+postgresql:
+  enabled: true
+  auth:
+    database: raksha
+    username: raksha
+    existingSecret: raksha-db-secret
+  primary:
+    persistence:
+      size: 20Gi
+
+# ─── Redis (Bitnami subchart) ─────────────────────────────────────────
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: false
+
+# ─── Secrets ──────────────────────────────────────────────────────────
+secrets:
+  jwtSecret: ""
+  databaseUrl: ""
+  redisUrl: ""
+
+# ─── Service Account ─────────────────────────────────────────────────
+serviceAccount:
+  create: true
+  name: raksha
+  annotations: {}
+
+# ─── Pod Security ─────────────────────────────────────────────────────
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL

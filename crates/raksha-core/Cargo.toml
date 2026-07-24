@@ -1,0 +1,20 @@
+[package]
+name = "raksha-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+axum = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+config = { workspace = true }
+dotenvy = { workspace = true }
+validator = { workspace = true }
+sqlx = { workspace = true }
+deadpool-redis = { workspace = true }
+tokio = { workspace = true }

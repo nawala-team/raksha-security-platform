@@ -1,0 +1,217 @@
+﻿name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ─── Build Agent (cross-platform) ───────────────────────────────────
+  build-agent:
+    name: Build Agent (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: raksha-agent-linux-amd64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: raksha-agent-linux-arm64
+          - target: armv7-unknown-linux-gnueabihf
+            os: ubuntu-latest
+            artifact: raksha-agent-linux-armv7
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            artifact: raksha-agent-windows-amd64
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            artifact: raksha-agent-darwin-amd64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact: raksha-agent-darwin-arm64
+          - target: x86_64-unknown-freebsd
+            os: ubuntu-latest
+            artifact: raksha-agent-freebsd-amd64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools
+        if: matrix.os == ''ubuntu-latest''
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build (cross)
+        if: matrix.os == ''ubuntu-latest''
+        run: cross build --release --bin raksha-agent --target ${{ matrix.target }}
+
+      - name: Build (native)
+        if: matrix.os != ''ubuntu-latest''
+        run: cargo build --release --bin raksha-agent --target ${{ matrix.target }}
+
+      - name: Package (Unix)
+        if: runner.os != ''Windows''
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf ${{ github.workspace }}/${{ matrix.artifact }}.tar.gz raksha-agent
+
+      - name: Package (Windows)
+        if: runner.os == ''Windows''
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "target/${{ matrix.target }}/release/raksha-agent.exe" `
+            -DestinationPath "${{ matrix.artifact }}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            ${{ matrix.artifact }}.tar.gz
+            ${{ matrix.artifact }}.zip
+          if-no-files-found: ignore
+
+  # ─── Build Portal ──────────────────────────────────────────────────
+  build-portal:
+    name: Build Portal (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: raksha-portal-linux-amd64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: raksha-portal-linux-arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: portal-${{ matrix.target }}
+
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build portal
+        run: cross build --release --bin raksha-portal --target ${{ matrix.target }}
+
+      - name: Package
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf ${{ github.workspace }}/${{ matrix.artifact }}.tar.gz raksha-portal
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.tar.gz
+
+  # ─── Build Docker Images ───────────────────────────────────────────
+  docker-publish:
+    name: Publish Docker Images
+    runs-on: ubuntu-latest
+    needs: [build-agent, build-portal]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version
+        id: version
+        run: echo "tag=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Build & push portal
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.portal
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/${{ github.repository }}/portal:${{ steps.version.outputs.tag }}
+            ghcr.io/${{ github.repository }}/portal:latest
+
+      - name: Build & push web
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.web
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/${{ github.repository }}/web:${{ steps.version.outputs.tag }}
+            ghcr.io/${{ github.repository }}/web:latest
+
+      - name: Build & push ml-engine
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.ml
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/${{ github.repository }}/ml-engine:${{ steps.version.outputs.tag }}
+            ghcr.io/${{ github.repository }}/ml-engine:latest
+
+      - name: Build & push agent
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.agent
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/${{ github.repository }}/agent:${{ steps.version.outputs.tag }}
+            ghcr.io/${{ github.repository }}/agent:latest
+
+  # ─── Create GitHub Release ─────────────────────────────────────────
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build-agent, build-portal, docker-publish]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          find . -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec mv {} . \;
+          sha256sum *.tar.gz *.zip > SHA256SUMS.txt 2>/dev/null || true
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/*.tar.gz
+            artifacts/*.zip
+            artifacts/SHA256SUMS.txt

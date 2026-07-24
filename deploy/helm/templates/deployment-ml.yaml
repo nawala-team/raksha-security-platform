@@ -1,0 +1,76 @@
+{{- $fullName := include "raksha.fullname" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullName }}-ml-engine
+  labels:
+    app.kubernetes.io/name: {{ include "raksha.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: ml-engine
+spec:
+  replicas: {{ .Values.mlEngine.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "raksha.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: ml-engine
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "raksha.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: ml-engine
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: ml-engine
+          image: "{{ .Values.global.imageRegistry }}{{ .Values.mlEngine.image.repository }}:{{ .Values.mlEngine.image.tag }}"
+          imagePullPolicy: {{ .Values.mlEngine.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $fullName }}-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $fullName }}-secrets
+                  key: redis-url
+            - name: MODEL_STORAGE
+              value: /data/models
+            - name: PORTAL_API_URL
+              value: "http://{{ $fullName }}-portal:{{ .Values.portal.service.port }}"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.mlEngine.resources | nindent 12 }}
+          volumeMounts:
+            - name: model-storage
+              mountPath: /data/models
+      volumes:
+        - name: model-storage
+          {{- if .Values.mlEngine.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ $fullName }}-ml-models
+          {{- else }}
+          emptyDir: {}
+          {{- end }}

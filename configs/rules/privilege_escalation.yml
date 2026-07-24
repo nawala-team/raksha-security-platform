@@ -1,0 +1,194 @@
+# Raksha Security Platform - Privilege Escalation Detection Rules
+---
+title: Unauthorized Privilege Elevation
+id: raksha-pe-001
+status: production
+level: critical
+description: Detects attempts to escalate privileges beyond assigned role
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.privilege_escalation
+  - attack.t1068
+  - mitre.ta0004
+references:
+  - https://attack.mitre.org/tactics/TA0004/
+
+logsource:
+  category: system
+  product: any
+
+detection:
+  condition: >
+    event_type = "privilege_change" AND
+    new_privilege_level > current_privilege_level AND
+    NOT in_approved_changes
+  fields:
+    - user_id
+    - source_ip
+    - current_role
+    - requested_role
+    - process_name
+    - timestamp
+
+response:
+  severity: critical
+  actions:
+    - alert_critical
+    - revert_privilege_change
+    - notify_soc
+    - log_forensics
+
+---
+title: Sudo/Admin Abuse Pattern
+id: raksha-pe-002
+status: production
+level: high
+description: Detects excessive or unusual administrative command execution
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.privilege_escalation
+  - attack.t1548.003
+  - attack.execution
+
+detection:
+  condition: >
+    (command MATCHES sudo_patterns OR
+     run_as_admin = true) AND
+    count >= threshold
+    within timeframe grouped by user_id
+  parameters:
+    threshold: 20
+    timeframe: 10m
+    sudo_patterns:
+      - "sudo *"
+      - "runas /user:administrator*"
+      - "pkexec *"
+      - "doas *"
+  indicators:
+    - rapid_sudo_commands
+    - unusual_admin_hours
+    - first_time_admin_usage
+
+response:
+  severity: high
+  actions:
+    - alert
+    - increase_audit_level
+    - notify_soc
+
+---
+title: Token Manipulation / Impersonation
+id: raksha-pe-003
+status: production
+level: critical
+description: Detects access token manipulation for privilege escalation
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.privilege_escalation
+  - attack.t1134
+  - attack.defense_evasion
+
+detection:
+  condition: >
+    (event_id IN [4672, 4673, 4674] OR
+     api_call IN token_apis) AND
+    user NOT IN service_accounts
+  parameters:
+    token_apis:
+      - "DuplicateToken"
+      - "ImpersonateLoggedOnUser"
+      - "SetThreadToken"
+      - "AdjustTokenPrivileges"
+    service_accounts:
+      - "$known_service_accounts"
+  fields:
+    - user_id
+    - process_name
+    - process_id
+    - parent_process
+    - token_type
+
+response:
+  severity: critical
+  actions:
+    - alert_critical
+    - terminate_process
+    - isolate_host
+    - notify_soc
+
+---
+title: Kernel Exploit Indicators
+id: raksha-pe-004
+status: production
+level: critical
+description: Detects signs of kernel-level privilege escalation exploits
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.privilege_escalation
+  - attack.t1068
+
+detection:
+  condition: >
+    (process_integrity_level_change = "low_to_system" OR
+     unexpected_driver_load = true OR
+     kernel_memory_access_violation = true)
+  indicators:
+    - integrity_level_jump
+    - unsigned_driver_load
+    - suspicious_ioctl_calls
+    - null_page_mapping_attempt
+  fields:
+    - process_name
+    - process_id
+    - driver_name
+    - user_id
+    - integrity_level_before
+    - integrity_level_after
+
+response:
+  severity: critical
+  actions:
+    - alert_critical
+    - isolate_host
+    - memory_dump
+    - notify_soc
+    - incident_response
+
+---
+title: Service Account Privilege Abuse
+id: raksha-pe-005
+status: production
+level: high
+description: Detects service accounts used for interactive logon or unusual actions
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.privilege_escalation
+  - attack.t1078.001
+
+detection:
+  condition: >
+    user IN service_accounts AND
+    (logon_type = "interactive" OR
+     action NOT IN expected_actions)
+  parameters:
+    service_accounts: "$service_account_list"
+    expected_actions: "$service_account_allowlist"
+  fields:
+    - user_id
+    - logon_type
+    - source_ip
+    - action
+    - resource
+
+response:
+  severity: high
+  actions:
+    - alert
+    - terminate_session
+    - disable_account_temporary
+    - notify_soc

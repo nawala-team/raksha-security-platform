@@ -1,0 +1,197 @@
+# Raksha Security Platform - Data Exfiltration Detection Rules
+---
+title: Large Data Transfer to External Host
+id: raksha-exfil-001
+status: production
+level: high
+description: Detects unusually large outbound data transfers indicating exfiltration
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.exfiltration
+  - attack.t1048
+  - mitre.ta0010
+references:
+  - https://attack.mitre.org/techniques/T1048/
+
+logsource:
+  category: network
+  product: proxy
+
+detection:
+  condition: >
+    outbound_bytes >= threshold AND
+    dest_ip NOT IN trusted_destinations
+    within timeframe grouped by source_ip
+  parameters:
+    threshold: 500MB
+    timeframe: 60m
+    trusted_destinations:
+      - "$cloud_backup_ips"
+      - "$cdn_ranges"
+  fields:
+    - source_ip
+    - dest_ip
+    - dest_port
+    - total_bytes
+    - protocol
+
+response:
+  severity: high
+  actions:
+    - alert
+    - throttle_connection
+    - notify_soc
+
+---
+title: DNS Tunneling Exfiltration
+id: raksha-exfil-002
+status: production
+level: critical
+description: Detects data exfiltration via DNS queries with encoded payloads
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.exfiltration
+  - attack.t1048.003
+  - attack.command_and_control
+  - attack.t1071.004
+
+detection:
+  condition: >
+    (dns_query_length > 50 OR
+     dns_subdomain_count > 4 OR
+     dns_entropy > 3.5) AND
+    dns_queries_count >= threshold
+    within timeframe grouped by source_ip
+  parameters:
+    threshold: 50
+    timeframe: 10m
+  indicators:
+    - high_entropy_subdomains
+    - base64_encoded_labels
+    - unusual_record_types: [TXT, NULL, CNAME]
+    - high_query_frequency
+
+response:
+  severity: critical
+  actions:
+    - alert_critical
+    - block_dns_destination
+    - isolate_host
+    - notify_soc
+
+---
+title: Exfiltration Over HTTPS (Steganographic)
+id: raksha-exfil-003
+status: production
+level: high
+description: Detects potential exfiltration disguised as normal HTTPS traffic
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.exfiltration
+  - attack.t1048.002
+
+detection:
+  condition: >
+    (upload_ratio > 0.8 OR
+     session_duration > 3600s) AND
+    dest_domain NOT IN allowed_domains AND
+    bytes_sent > threshold
+    within timeframe grouped by (source_ip, dest_domain)
+  parameters:
+    threshold: 100MB
+    timeframe: 30m
+  indicators:
+    - abnormal_upload_download_ratio
+    - sustained_connection_to_unknown
+    - certificate_anomaly
+    - newly_registered_domain
+
+response:
+  severity: high
+  actions:
+    - alert
+    - deep_packet_inspection
+    - notify_soc
+
+---
+title: Email-Based Data Exfiltration
+id: raksha-exfil-004
+status: production
+level: medium
+description: Detects bulk sensitive data sent via email attachments
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.exfiltration
+  - attack.t1048.003
+  - attack.t1567
+
+detection:
+  condition: >
+    (attachment_size > 10MB OR
+     attachment_count > 5 OR
+     recipient_domain NOT IN corporate_domains) AND
+    sensitive_label = true
+    within timeframe grouped by sender
+  parameters:
+    timeframe: 60m
+    corporate_domains:
+      - "$company_domains"
+  indicators:
+    - large_attachments
+    - encrypted_archives
+    - personal_email_recipient
+    - bulk_sending_pattern
+
+response:
+  severity: medium
+  actions:
+    - alert
+    - quarantine_email
+    - notify_dlp_team
+  escalation:
+    condition: "attachment_size > 50MB"
+    severity: high
+    actions:
+      - block_email
+      - notify_soc
+
+---
+title: Cloud Storage Exfiltration
+id: raksha-exfil-005
+status: production
+level: high
+description: Detects unauthorized uploads to cloud storage services
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.exfiltration
+  - attack.t1567.002
+
+detection:
+  condition: >
+    dest_domain MATCHES cloud_storage_patterns AND
+    bytes_sent > threshold AND
+    NOT in_approved_transfers
+    within timeframe grouped by source_user
+  parameters:
+    threshold: 50MB
+    timeframe: 30m
+    cloud_storage_patterns:
+      - "*.dropbox.com"
+      - "*.drive.google.com"
+      - "*.onedrive.live.com"
+      - "*.box.com"
+      - "*.mega.nz"
+      - "*.wetransfer.com"
+      - "*.s3.amazonaws.com"
+
+response:
+  severity: high
+  actions:
+    - alert
+    - block_upload
+    - notify_soc

@@ -1,0 +1,37 @@
+[package]
+name = "raksha-portal"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "raksha-portal"
+path = "src/main.rs"
+
+[dependencies]
+raksha-core = { workspace = true }
+raksha-auth = { workspace = true }
+raksha-alert = { workspace = true }
+raksha-ml = { workspace = true }
+raksha-compliance = { workspace = true }
+raksha-audit = { workspace = true }
+
+axum = { workspace = true }
+axum-extra = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+hyper = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+sqlx = { workspace = true }
+deadpool-redis = { workspace = true }
+redis = { workspace = true }
+jsonwebtoken = { workspace = true }
+argon2 = { workspace = true }
+validator = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }

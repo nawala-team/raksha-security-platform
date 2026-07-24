@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+title: "Raksha Security Platform"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - name: "NAWALA TEAM"
+    country: "ID"
+    city: "Jakarta"
+repository-code: "https://github.com/nawala-team/raksha-security-platform"
+url: "https://raksha.nawala.dev"
+abstract: >-
+  Raksha (Sanskrit: रक्षा, meaning protection) is a comprehensive
+  infrastructure security monitoring and compliance platform. It provides
+  real-time server monitoring, network scanning, database security auditing,
+  automated compliance checking, ML-powered threat detection, and immutable
+  audit trails.
+keywords:
+  - security
+  - monitoring
+  - compliance
+  - infrastructure
+  - threat-detection
+  - audit
+  - machine-learning
+license: MIT
+version: 0.1.0
+date-released: "2026-01-01"

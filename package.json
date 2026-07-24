@@ -1,0 +1,53 @@
+{
+  "name": "raksha-security-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Comprehensive infrastructure security monitoring and compliance platform",
+  "keywords": [
+    "security",
+    "monitoring",
+    "compliance",
+    "infrastructure",
+    "threat-detection",
+    "nawala"
+  ],
+  "homepage": "https://raksha.nawala.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nawala-team/raksha-security-platform.git"
+  },
+  "license": "MIT",
+  "author": "NAWALA TEAM",
+  "workspaces": [
+    "dashboard",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build:dashboard",
+    "build:dashboard": "npm -w dashboard run build",
+    "dev": "npm -w dashboard run dev",
+    "lint": "npm -w dashboard run lint",
+    "test": "npm -w dashboard run test",
+    "prepare": "husky",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "husky": "9.1.6",
+    "prettier": "3.4.2",
+    "lint-staged": "15.2.10"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{md,json,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

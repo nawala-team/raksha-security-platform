@@ -1,0 +1,44 @@
+# Raksha ML Engine - Security Analytics
+# Core ML/DL
+scikit-learn==1.4.2
+torch==2.2.1
+numpy==1.26.4
+pandas==2.2.1
+scipy==1.12.0
+
+# Model export
+onnx==1.15.0
+onnxruntime==1.17.1
+skl2onnx==1.16.0
+
+# Hyperparameter optimization
+optuna==3.5.0
+
+# API framework
+fastapi==0.110.0
+uvicorn[standard]==0.27.1
+pydantic==2.6.3
+
+# Data layer
+sqlalchemy==2.0.25
+asyncpg==0.29.0
+redis==5.0.1
+
+# Data processing
+pyarrow==15.0.0
+joblib==1.3.2
+
+# Threat feed parsing
+httpx==0.27.0
+aiofiles==23.2.1
+xmltodict==0.13.0
+stix2==3.0.1
+
+# Observability
+prometheus-client==0.20.0
+structlog==24.1.0
+python-dotenv==1.0.1
+
+# Testing
+pytest==8.0.2
+pytest-asyncio==0.23.5

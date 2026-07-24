@@ -1,0 +1,180 @@
+# Raksha Security Platform - Brute Force Detection Rules
+# Format: Sigma-compatible YAML
+---
+title: Brute Force Authentication Attempt
+id: raksha-bf-001
+status: production
+level: high
+description: Detects multiple failed authentication attempts from a single source
+author: Raksha Security Team
+date: 2024-03-01
+modified: 2024-03-15
+tags:
+  - attack.credential_access
+  - attack.t1110
+  - attack.t1110.001
+  - mitre.ta0006
+references:
+  - https://attack.mitre.org/techniques/T1110/001/
+
+logsource:
+  category: authentication
+  product: any
+
+detection:
+  condition: failed_logins >= threshold within timeframe grouped by source_ip
+  parameters:
+    threshold: 10
+    timeframe: 5m
+  fields:
+    - source_ip
+    - target_user
+    - event_type
+    - timestamp
+
+  filter_known_scanners:
+    source_ip|cidr:
+      - "10.0.0.0/8"      # Internal vulnerability scanners
+    description: "Exclude known security scanning infrastructure"
+
+response:
+  severity: high
+  actions:
+    - alert
+    - block_ip_temporary
+  block_duration: 30m
+  escalation:
+    condition: "failed_logins >= 50 within 5m"
+    actions:
+      - alert_critical
+      - block_ip_permanent
+      - notify_soc
+
+---
+title: Distributed Brute Force Attack
+id: raksha-bf-002
+status: production
+level: critical
+description: Detects brute force attempts from multiple sources against a single account
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.credential_access
+  - attack.t1110.003
+
+detection:
+  condition: failed_logins >= threshold within timeframe grouped by target_user
+  parameters:
+    threshold: 20
+    timeframe: 10m
+    min_unique_sources: 5
+  fields:
+    - source_ip
+    - target_user
+    - event_type
+
+response:
+  severity: critical
+  actions:
+    - alert_critical
+    - lock_account_temporary
+    - notify_soc
+  lock_duration: 60m
+
+---
+title: Credential Stuffing Detection
+id: raksha-bf-003
+status: production
+level: high
+description: Detects credential stuffing with many unique usernames from one source
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.credential_access
+  - attack.t1110.004
+
+detection:
+  condition: >
+    unique_target_users >= threshold AND
+    failed_logins >= min_attempts
+    within timeframe grouped by source_ip
+  parameters:
+    threshold: 20
+    min_attempts: 50
+    timeframe: 15m
+  indicators:
+    - high_unique_user_ratio
+    - sequential_timing_pattern
+    - automated_user_agent
+
+response:
+  severity: high
+  actions:
+    - alert
+    - block_ip_temporary
+    - enable_captcha
+  block_duration: 60m
+
+---
+title: Password Spray Attack
+id: raksha-bf-004
+status: production
+level: high
+description: Detects slow-and-low password spray attempting common passwords
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.credential_access
+  - attack.t1110.003
+
+detection:
+  condition: >
+    unique_target_users >= threshold AND
+    max_attempts_per_user <= 3
+    within timeframe grouped by source_ip
+  parameters:
+    threshold: 10
+    timeframe: 60m
+  indicators:
+    - uniform_password_pattern
+    - slow_request_rate
+    - targeting_multiple_accounts
+
+response:
+  severity: high
+  actions:
+    - alert
+    - increase_monitoring
+    - enforce_mfa
+
+---
+title: Successful Login After Brute Force
+id: raksha-bf-005
+status: production
+level: critical
+description: Detects successful authentication following multiple failures (compromise indicator)
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.credential_access
+  - attack.t1110
+
+detection:
+  condition: >
+    failed_logins >= 5 within 10m
+    FOLLOWED BY successful_login within 2m
+    grouped by (source_ip, target_user)
+  fields:
+    - source_ip
+    - target_user
+    - timestamp
+    - geo_location
+
+response:
+  severity: critical
+  actions:
+    - alert_critical
+    - force_password_reset
+    - terminate_sessions
+    - notify_soc
+    - notify_user

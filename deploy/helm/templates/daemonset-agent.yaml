@@ -1,0 +1,86 @@
+{{- $fullName := include "raksha.fullname" . -}}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ $fullName }}-agent
+  labels:
+    app.kubernetes.io/name: {{ include "raksha.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: agent
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "raksha.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: agent
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "raksha.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: agent
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      hostNetwork: true
+      hostPID: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- with .Values.agent.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: agent
+          image: "{{ .Values.global.imageRegistry }}{{ .Values.agent.image.repository }}:{{ .Values.agent.image.tag }}"
+          imagePullPolicy: {{ .Values.agent.image.pullPolicy }}
+          securityContext:
+            privileged: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              add:
+                - SYS_PTRACE
+                - NET_ADMIN
+              drop:
+                - ALL
+          env:
+            - name: RAKSHA_PORTAL_URL
+              value: "http://{{ $fullName }}-portal:{{ .Values.portal.service.port }}"
+            - name: RAKSHA_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: RAKSHA_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            {{- toYaml .Values.agent.resources | nindent 12 }}
+          volumeMounts:
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+            - name: sys
+              mountPath: /host/sys
+              readOnly: true
+            - name: etc
+              mountPath: /host/etc
+              readOnly: true
+            - name: agent-config
+              mountPath: /etc/raksha
+      volumes:
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: etc
+          hostPath:
+            path: /etc
+        - name: agent-config
+          configMap:
+            name: {{ $fullName }}-agent-config
+            optional: true

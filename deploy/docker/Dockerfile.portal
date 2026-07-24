@@ -1,0 +1,58 @@
+# ─── Stage 1: Chef (dependency caching) ──────────────────────────────
+FROM rust:1.79-bookworm AS chef
+RUN cargo install cargo-chef --locked
+WORKDIR /app
+
+# ─── Stage 2: Planner ────────────────────────────────────────────────
+FROM chef AS planner
+COPY Cargo.toml Cargo.lock ./
+COPY apps/ apps/
+COPY crates/ crates/
+RUN cargo chef prepare --recipe-path recipe.json
+
+# ─── Stage 3: Builder ────────────────────────────────────────────────
+FROM chef AS builder
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+
+# Copy full source and build
+COPY Cargo.toml Cargo.lock ./
+COPY apps/ apps/
+COPY crates/ crates/
+COPY configs/ configs/
+
+RUN cargo build --release --bin raksha-portal
+
+# ─── Stage 4: Runtime ────────────────────────────────────────────────
+FROM debian:bookworm-slim AS runtime
+
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    tini \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -r raksha && useradd -r -g raksha -d /app -s /sbin/nologin raksha
+
+WORKDIR /app
+
+COPY --from=builder /app/target/release/raksha-portal /usr/local/bin/raksha-portal
+COPY configs/ /app/configs/
+
+RUN chown -R raksha:raksha /app
+
+USER raksha
+
+EXPOSE 8080
+
+ENTRYPOINT ["tini", "--"]
+CMD ["raksha-portal"]

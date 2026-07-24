@@ -1,0 +1,97 @@
+# Raksha Security Platform - NIST Cybersecurity Framework 2.0 Mapping
+---
+metadata:
+  framework: NIST CSF
+  version: "2.0"
+  last_updated: "2024-03-15"
+  description: NIST Cybersecurity Framework function and category mapping
+
+functions:
+  - id: GV
+    name: Govern
+    categories:
+      - id: GV.OC
+        name: Organizational Context
+        checks: [risk_register_current, mission_alignment_documented]
+      - id: GV.RM
+        name: Risk Management Strategy
+        checks: [risk_appetite_defined, risk_tolerance_thresholds_set]
+      - id: GV.SC
+        name: Supply Chain Risk Management
+        checks: [vendor_risk_assessments, sbom_generated, dependency_scanning]
+
+  - id: ID
+    name: Identify
+    categories:
+      - id: ID.AM
+        name: Asset Management
+        checks: [asset_inventory_complete, software_inventory_current, shadow_it_detection]
+        data_sources: [cmdb, network_scanner]
+      - id: ID.RA
+        name: Risk Assessment
+        checks: [vulnerability_scan_current, cve_tracking_active, threat_feeds_active]
+        integration: [feeds.nvd, feeds.cisa_kev, feeds.mitre_attack, feeds.otx]
+
+
+  - id: PR
+    name: Protect
+    categories:
+      - id: PR.AA
+        name: Identity Management, Authentication, and Access Control
+        checks: [mfa_enforced, least_privilege_enforced, credential_rotation]
+        rules: [raksha-bf-001, raksha-bf-002, raksha-bf-005, raksha-pe-001, raksha-pe-005]
+      - id: PR.DS
+        name: Data Security
+        checks: [encryption_at_rest, tls_enforced, key_management_valid]
+        rules: [raksha-exfil-003]
+      - id: PR.PS
+        name: Platform Security
+        checks: [hardening_baselines_applied, config_drift_detected, patch_management]
+
+  - id: DE
+    name: Detect
+    categories:
+      - id: DE.CM
+        name: Continuous Monitoring
+        checks: [network_monitoring_active, ids_operational, uba_active]
+        rules: [raksha-ps-001, raksha-ps-002, raksha-ps-003]
+        integration: [network_analyzer, user_behavior]
+      - id: DE.AE
+        name: Adverse Event Analysis
+        checks: [alert_triage_sla, correlation_rules_active, multi_source_analysis]
+        integration: [anomaly_detector, ml_engine]
+
+  - id: RS
+    name: Respond
+    categories:
+      - id: RS.MA
+        name: Incident Management
+        checks: [ir_plan_current, ir_playbooks_defined, incident_documentation]
+      - id: RS.MI
+        name: Incident Mitigation
+        checks: [containment_procedures_defined, auto_isolation_configured]
+        rules: [raksha-mal-003]
+
+  - id: RC
+    name: Recover
+    categories:
+      - id: RC.RP
+        name: Incident Recovery Plan Execution
+        checks: [recovery_plan_tested, backup_restoration_verified]
+        targets:
+          rto: 4h
+          rpo: 1h
+
+tiers:
+  - tier: 1
+    name: Partial
+    description: Risk management is ad hoc
+  - tier: 2
+    name: Risk Informed
+    description: Risk management practices approved but not organization-wide
+  - tier: 3
+    name: Repeatable
+    description: Formally approved and expressed as policy
+  - tier: 4
+    name: Adaptive
+    description: Organization adapts based on lessons learned and predictive indicators

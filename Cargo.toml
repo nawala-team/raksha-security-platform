@@ -1,0 +1,75 @@
+[workspace]
+resolver = "2"
+members = [
+    "apps/portal",
+    "apps/agent",
+    "apps/cli",
+    "crates/raksha-core",
+    "crates/raksha-auth",
+    "crates/raksha-alert",
+    "crates/raksha-ml",
+    "crates/raksha-compliance",
+    "crates/raksha-audit",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/raksha-security/raksha-platform"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.40", features = ["full"] }
+
+# Web framework
+axum = { version = "0.7", features = ["macros", "ws"] }
+axum-extra = { version = "0.9", features = ["typed-header", "cookie"] }
+tower = { version = "0.5", features = ["full"] }
+tower-http = { version = "0.5", features = ["cors", "trace", "compression-gzip", "request-id", "timeout", "limit"] }
+hyper = { version = "1.4", features = ["full"] }
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "migrate"] }
+
+# Redis
+deadpool-redis = { version = "0.15" }
+redis = { version = "0.25", features = ["tokio-comp", "connection-manager"] }
+
+# Auth & Crypto
+jsonwebtoken = "9.3"
+argon2 = "0.5"
+rand = "0.8"
+sha2 = "0.10"
+hmac = "0.12"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# IDs & Time
+uuid = { version = "1.10", features = ["v4", "v7", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Config
+config = "0.14"
+dotenvy = "0.15"
+
+# Validation
+validator = { version = "0.18", features = ["derive"] }
+
+# Internal crates
+raksha-core = { path = "crates/raksha-core" }
+raksha-auth = { path = "crates/raksha-auth" }
+raksha-alert = { path = "crates/raksha-alert" }
+raksha-ml = { path = "crates/raksha-ml" }
+raksha-compliance = { path = "crates/raksha-compliance" }
+raksha-audit = { path = "crates/raksha-audit" }

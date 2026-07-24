@@ -1,0 +1,184 @@
+# Raksha Security Platform - Port Scanning Detection Rules
+---
+title: TCP SYN Port Scan
+id: raksha-ps-001
+status: production
+level: medium
+description: Detects TCP SYN scanning targeting multiple ports on a single host
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.discovery
+  - attack.t1046
+  - mitre.ta0007
+references:
+  - https://attack.mitre.org/techniques/T1046/
+
+logsource:
+  category: network
+  product: firewall
+
+detection:
+  condition: >
+    unique_dst_ports >= threshold AND
+    syn_without_ack_ratio > 0.8
+    within timeframe grouped by (source_ip, dest_ip)
+  parameters:
+    threshold: 25
+    timeframe: 60s
+  fields:
+    - source_ip
+    - dest_ip
+    - dest_port
+    - tcp_flags
+    - timestamp
+
+response:
+  severity: medium
+  actions:
+    - alert
+    - rate_limit_source
+  escalation:
+    condition: "unique_dst_ports >= 100 within 60s"
+    severity: high
+    actions:
+      - block_ip_temporary
+      - notify_soc
+
+---
+title: Horizontal Port Scan (Network Sweep)
+id: raksha-ps-002
+status: production
+level: high
+description: Detects scanning across multiple hosts on the same port (host discovery)
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.discovery
+  - attack.t1046
+  - attack.t1018
+
+detection:
+  condition: >
+    unique_dest_ips >= threshold AND
+    same_dest_port = true
+    within timeframe grouped by source_ip
+  parameters:
+    threshold: 20
+    timeframe: 120s
+  fields:
+    - source_ip
+    - dest_ip
+    - dest_port
+    - protocol
+
+response:
+  severity: high
+  actions:
+    - alert
+    - block_ip_temporary
+  block_duration: 15m
+
+---
+title: Stealth Scan Detection (FIN/XMAS/NULL)
+id: raksha-ps-003
+status: production
+level: high
+description: Detects stealth scanning techniques using unusual TCP flag combinations
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.discovery
+  - attack.t1046
+  - attack.defense_evasion
+
+detection:
+  condition: >
+    (tcp_flags IN ['FIN', 'FIN,PSH,URG', 'NONE']) AND
+    unique_dst_ports >= threshold
+    within timeframe grouped by source_ip
+  parameters:
+    threshold: 10
+    timeframe: 120s
+  indicators:
+    - fin_scan: "FIN flag only"
+    - xmas_scan: "FIN+PSH+URG flags"
+    - null_scan: "No flags set"
+
+response:
+  severity: high
+  actions:
+    - alert
+    - block_ip_permanent
+    - notify_soc
+
+---
+title: Internal Lateral Movement Scan
+id: raksha-ps-004
+status: production
+level: critical
+description: Detects port scanning from internal hosts indicating lateral movement
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.lateral_movement
+  - attack.t1046
+  - attack.t1021
+
+detection:
+  condition: >
+    source_ip|cidr IN internal_ranges AND
+    unique_dest_ips >= threshold
+    within timeframe grouped by source_ip
+  parameters:
+    threshold: 10
+    timeframe: 300s
+    internal_ranges:
+      - "10.0.0.0/8"
+      - "172.16.0.0/12"
+      - "192.168.0.0/16"
+  exclude:
+    source_ip: "$known_scanners"
+    process_name:
+      - "nmap"
+      - "vulnerability_scanner"
+
+response:
+  severity: critical
+  actions:
+    - alert_critical
+    - isolate_host
+    - notify_soc
+    - capture_traffic
+
+---
+title: Service Version Scanning
+id: raksha-ps-005
+status: production
+level: medium
+description: Detects service version probing (banner grabbing) across multiple services
+author: Raksha Security Team
+date: 2024-03-01
+tags:
+  - attack.discovery
+  - attack.t1046
+
+detection:
+  condition: >
+    connection_duration < 3s AND
+    data_transferred < 1KB AND
+    unique_dst_ports >= threshold
+    within timeframe grouped by source_ip
+  parameters:
+    threshold: 15
+    timeframe: 300s
+  indicators:
+    - short_lived_connections
+    - minimal_data_exchange
+    - sequential_port_access
+
+response:
+  severity: medium
+  actions:
+    - alert
+    - increase_monitoring

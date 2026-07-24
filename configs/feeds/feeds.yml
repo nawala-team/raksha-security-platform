@@ -1,0 +1,225 @@
+# Raksha Security Platform - Threat Intelligence Feed Configuration
+---
+metadata:
+  version: "1.0.0"
+  last_updated: "2024-03-15"
+  description: Centralized threat feed source configuration
+  default_retry_attempts: 3
+  default_retry_delay: 60s
+  storage_backend: redis
+  cache_ttl: 3600
+
+feeds:
+  # --- NVD / CVE Feeds ---
+  - id: nvd_cve
+    name: NIST National Vulnerability Database
+    enabled: true
+    url: https://services.nvd.nist.gov/rest/json/cves/2.0
+    type: rest_api
+    format: json
+    auth:
+      type: api_key
+      header: apiKey
+      env_var: NVD_API_KEY
+    schedule:
+      interval: 2h
+      initial_delay: 0s
+    parser: src.feeds.nvd.NVDFeed
+    parameters:
+      days_lookback: 7
+      max_results: 2000
+    rate_limit:
+      requests_per_second: 5
+      with_key: 50
+    priority: high
+    tags: [vulnerability, cve, cvss]
+
+  # --- CISA Known Exploited Vulnerabilities ---
+  - id: cisa_kev
+    name: CISA Known Exploited Vulnerabilities
+    enabled: true
+    url: https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
+    type: http_download
+    format: json
+    auth:
+      type: none
+    schedule:
+      interval: 6h
+      initial_delay: 30s
+    parser: src.feeds.cisa_kev.CISAKEVFeed
+    priority: critical
+    tags: [vulnerability, exploit, kev, ransomware]
+
+  # --- MITRE ATT&CK ---
+  - id: mitre_attack
+    name: MITRE ATT&CK Enterprise
+    enabled: true
+    url: https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json
+    type: http_download
+    format: stix2.1
+    auth:
+      type: none
+    schedule:
+      interval: 24h
+      initial_delay: 60s
+    parser: src.feeds.mitre_attack.MitreAttackFeed
+    priority: medium
+    tags: [ttp, framework, attack_patterns]
+
+  # --- Abuse.ch URLhaus ---
+  - id: abuse_ch_urlhaus
+    name: Abuse.ch URLhaus
+    enabled: true
+    url: https://urlhaus-api.abuse.ch/v1
+    type: rest_api
+    format: json
+    auth:
+      type: none
+    schedule:
+      interval: 30m
+      initial_delay: 10s
+    parser: src.feeds.abuse_ch.AbuseCHFeed.fetch_urlhaus_recent
+    parameters:
+      limit: 1000
+    priority: high
+    tags: [malware, url, phishing, c2]
+
+  # --- Abuse.ch MalwareBazaar ---
+  - id: abuse_ch_malwarebazaar
+    name: Abuse.ch MalwareBazaar
+    enabled: true
+    url: https://mb-api.abuse.ch/api/v1/
+    type: rest_api
+    format: json
+    auth:
+      type: none
+    schedule:
+      interval: 1h
+      initial_delay: 15s
+    parser: src.feeds.abuse_ch.AbuseCHFeed.fetch_malwarebazaar_recent
+    parameters:
+      limit: 100
+    priority: high
+
+  # --- Abuse.ch Feodo Tracker ---
+  - id: abuse_ch_feodo
+    name: Abuse.ch Feodo Tracker
+    enabled: true
+    url: https://feodotracker.abuse.ch/downloads/ipblocklist.json
+    type: http_download
+    format: json
+    auth:
+      type: none
+    schedule:
+      interval: 1h
+      initial_delay: 20s
+    parser: src.feeds.abuse_ch.AbuseCHFeed.fetch_feodo_blocklist
+    priority: critical
+    tags: [c2, botnet, banking_trojan, ip_blocklist]
+
+  # --- AlienVault OTX ---
+  - id: alienvault_otx
+    name: AlienVault Open Threat Exchange
+    enabled: true
+    url: https://otx.alienvault.com/api/v1
+    type: rest_api
+    format: json
+    auth:
+      type: api_key
+      header: X-OTX-API-KEY
+      env_var: OTX_API_KEY
+    schedule:
+      interval: 1h
+      initial_delay: 45s
+    parser: src.feeds.otx.OTXFeed
+    parameters:
+      days_lookback: 7
+      limit: 50
+    rate_limit:
+      requests_per_minute: 60
+    priority: high
+    tags: [ioc, pulse, community, multi_source]
+
+  # --- Emerging Threats (Proofpoint) ---
+  - id: emerging_threats
+    name: Emerging Threats Open Ruleset
+    enabled: true
+    url: https://rules.emergingthreats.net/open/suricata/emerging-all.rules
+    type: http_download
+    format: suricata_rules
+    auth:
+      type: none
+    schedule:
+      interval: 12h
+      initial_delay: 120s
+    priority: medium
+    tags: [ids, suricata, network_signatures]
+
+  # --- PhishTank ---
+  - id: phishtank
+    name: PhishTank Verified Phishing URLs
+    enabled: true
+    url: https://data.phishtank.com/data/online-valid.json
+    type: http_download
+    format: json
+    auth:
+      type: api_key
+      parameter: app_key
+      env_var: PHISHTANK_API_KEY
+    schedule:
+      interval: 1h
+      initial_delay: 30s
+    priority: medium
+    tags: [phishing, url, social_engineering]
+
+# --- Processing Pipeline ---
+processing:
+  deduplication:
+    enabled: true
+    window: 24h
+    keys: [indicator_value, source_feed]
+
+  enrichment:
+    geo_ip: true
+    whois: true
+    dns_resolution: true
+    reputation_scoring: true
+
+  normalization:
+    timestamp_format: ISO8601
+    indicator_types:
+      - ipv4
+      - ipv6
+      - domain
+      - url
+      - sha256
+      - md5
+      - email
+      - ja3
+
+  scoring:
+    confidence_weights:
+      cisa_kev: 1.0
+      nvd_critical: 0.95
+      abuse_ch: 0.9
+      otx_high_pulse: 0.85
+      emerging_threats: 0.8
+      community_reports: 0.6
+
+# --- Alert Integration ---
+alerting:
+  channels:
+    - type: webhook
+      url_env: ALERT_WEBHOOK_URL
+      events: [critical_ioc_match, new_kev, high_cvss]
+    - type: siem
+      protocol: syslog
+      host_env: SIEM_HOST
+      port: 514
+      format: cef
+    - type: email
+      smtp_env: SMTP_CONFIG
+      recipients_env: SOC_TEAM_EMAIL
+      events: [critical_ioc_match]
+
+    tags: [malware, hash, ioc, samples]

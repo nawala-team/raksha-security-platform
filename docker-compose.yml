@@ -1,0 +1,183 @@
+version: "3.9"
+
+x-common-env: &common-env
+  RUST_LOG: info
+  DATABASE_URL: postgres://raksha:${POSTGRES_PASSWORD:-raksha_secret}@postgres:5432/raksha
+  REDIS_URL: redis://redis:6379
+  TIMESCALE_URL: postgres://raksha:${POSTGRES_PASSWORD:-raksha_secret}@timescaledb:5432/raksha_metrics
+  OPENSEARCH_URL: http://opensearch:9200
+
+services:
+  # ─── Portal API (Rust/Axum) ────────────────────────────────────────
+  portal:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.portal
+    image: raksha/portal:${RAKSHA_VERSION:-latest}
+    container_name: raksha-portal
+    restart: unless-stopped
+    ports:
+      - "${PORTAL_PORT:-8080}:8080"
+    environment:
+      <<: *common-env
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_production}
+      PORTAL_HOST: 0.0.0.0
+      PORTAL_PORT: "8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - raksha-net
+
+  # ─── Web UI (Next.js) ──────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.web
+    image: raksha/web:${RAKSHA_VERSION:-latest}
+    container_name: raksha-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://portal:8080
+      NODE_ENV: production
+    depends_on:
+      portal:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - raksha-net
+
+  # ─── ML Engine (Python) ────────────────────────────────────────────
+  ml-trainer:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.ml
+    image: raksha/ml-engine:${RAKSHA_VERSION:-latest}
+    container_name: raksha-ml
+    restart: unless-stopped
+    ports:
+      - "${ML_PORT:-8000}:8000"
+    environment:
+      <<: *common-env
+      MODEL_STORAGE: /data/models
+      PORTAL_API_URL: http://portal:8080
+    volumes:
+      - ml-models:/data/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+    networks:
+      - raksha-net
+
+  # ─── PostgreSQL ────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: raksha-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: raksha
+      POSTGRES_USER: raksha
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-raksha_secret}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raksha -d raksha"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - raksha-net
+
+  # ─── Redis ─────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: raksha-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - raksha-net
+
+  # ─── TimescaleDB (metrics time-series) ─────────────────────────────
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: raksha-timescaledb
+    restart: unless-stopped
+    ports:
+      - "${TIMESCALE_PORT:-5433}:5432"
+    environment:
+      POSTGRES_DB: raksha_metrics
+      POSTGRES_USER: raksha
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-raksha_secret}
+    volumes:
+      - timescale-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raksha -d raksha_metrics"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - raksha-net
+
+  # ─── OpenSearch (log indexing & search) ─────────────────────────────
+  opensearch:
+    image: opensearchproject/opensearch:2.12.0
+    container_name: raksha-opensearch
+    restart: unless-stopped
+    ports:
+      - "${OPENSEARCH_PORT:-9200}:9200"
+      - "9600:9600"
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - raksha-net
+
+volumes:
+  postgres-data:
+  redis-data:
+  timescale-data:
+  opensearch-data:
+  ml-models:
+
+networks:
+  raksha-net:
+    driver: bridge

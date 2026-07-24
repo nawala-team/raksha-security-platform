@@ -1,0 +1,60 @@
+{{- $fullName := include "raksha.fullname" . -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullName }}-portal
+  labels:
+    app.kubernetes.io/name: {{ include "raksha.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: portal
+spec:
+  type: {{ .Values.portal.service.type }}
+  ports:
+    - port: {{ .Values.portal.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: {{ include "raksha.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: portal
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullName }}-web
+  labels:
+    app.kubernetes.io/name: {{ include "raksha.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: web
+spec:
+  type: {{ .Values.web.service.type }}
+  ports:
+    - port: {{ .Values.web.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: {{ include "raksha.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: web
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullName }}-ml-engine
+  labels:
+    app.kubernetes.io/name: {{ include "raksha.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: ml-engine
+spec:
+  type: {{ .Values.mlEngine.service.type }}
+  ports:
+    - port: {{ .Values.mlEngine.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: {{ include "raksha.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: ml-engine

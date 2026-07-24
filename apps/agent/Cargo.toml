@@ -1,0 +1,33 @@
+[package]
+name = "raksha-agent"
+version = "0.1.0"
+edition = "2021"
+description = "Raksha Security Platform - Host Monitoring Agent"
+license = "MIT"
+
+[[bin]]
+name = "raksha-agent"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1.37", features = ["full"] }
+sysinfo = "0.30"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1.8", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+sha2 = "0.10"
+hex = "0.4"
+walkdir = "2.5"
+dirs = "5.0"
+
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+codegen-units = 1

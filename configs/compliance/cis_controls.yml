@@ -1,0 +1,220 @@
+# Raksha Security Platform - CIS Controls v8 Mapping
+---
+metadata:
+  framework: CIS Controls
+  version: "8.0"
+  last_updated: "2024-03-15"
+  description: Center for Internet Security Critical Security Controls
+  total_controls: 18
+  implementation_groups:
+    - ig1: Essential cyber hygiene (56 safeguards)
+    - ig2: Enterprise-level (74 additional safeguards)
+    - ig3: Advanced (23 additional safeguards)
+
+controls:
+  - id: CIS.1
+    title: Inventory and Control of Enterprise Assets
+    ig: [1, 2, 3]
+    safeguards:
+      - id: "1.1"
+        title: Establish and maintain asset inventory
+        ig: [1]
+        raksha_checks: [asset_discovery_active, inventory_accuracy_above_95]
+      - id: "1.2"
+        title: Address unauthorized assets
+        ig: [1]
+        raksha_checks: [rogue_device_detection, unauthorized_asset_alerting]
+
+  - id: CIS.2
+    title: Inventory and Control of Software Assets
+    ig: [1, 2, 3]
+    safeguards:
+      - id: "2.1"
+        title: Establish and maintain software inventory
+        ig: [1]
+        raksha_checks: [software_inventory_current, sbom_generated]
+      - id: "2.3"
+        title: Address unauthorized software
+        ig: [1]
+        raksha_checks: [application_allowlisting, unauthorized_software_alert]
+      - id: "2.7"
+        title: Allowlist authorized scripts/libraries
+        ig: [2]
+        raksha_checks: [script_allowlisting_enforced]
+
+  - id: CIS.3
+    title: Data Protection
+    ig: [1, 2, 3]
+    safeguards:
+      - id: "3.1"
+        title: Establish data management process
+        ig: [1]
+        raksha_checks: [data_classification_policy, sensitive_data_inventory]
+      - id: "3.4"
+        title: Enforce data retention
+        ig: [1]
+        raksha_checks: [retention_policy_enforced, log_retention_compliant]
+      - id: "3.12"
+        title: Segment data based on sensitivity
+        ig: [2]
+        raksha_checks: [network_segmentation_by_data_class]
+    rules: [raksha-exfil-001, raksha-exfil-002, raksha-exfil-005]
+
+  - id: CIS.4
+    title: Secure Configuration of Enterprise Assets and Software
+    ig: [1, 2, 3]
+    safeguards:
+      - id: "4.1"
+        title: Establish secure configuration process
+        ig: [1]
+        raksha_checks: [hardening_baselines_defined, config_audit_passing]
+      - id: "4.7"
+        title: Manage default accounts
+        ig: [1]
+        raksha_checks: [default_accounts_disabled, default_passwords_changed]
+
+  - id: CIS.5
+    title: Account Management
+    ig: [1, 2, 3]
+    safeguards:
+      - id: "5.1"
+        title: Establish and maintain account inventory
+        ig: [1]
+        raksha_checks: [account_inventory_current, orphan_accounts_detected]
+      - id: "5.2"
+        title: Use unique passwords
+        ig: [1]
+        raksha_checks: [password_policy_enforced, password_reuse_blocked]
+      - id: "5.4"
+        title: Restrict administrator privileges
+        ig: [1]
+        raksha_checks: [admin_count_within_threshold, least_privilege_enforced]
+    rules: [raksha-pe-001, raksha-pe-002, raksha-pe-005]
+
+  - id: CIS.6
+    title: Access Management
+    ig: [1, 2, 3]
+    safeguards:
+      - id: "6.3"
+        title: Require MFA for externally-exposed applications
+        ig: [1]
+        raksha_checks: [mfa_enforced_external, mfa_enforced_admin]
+      - id: "6.4"
+        title: Require MFA for remote access
+        ig: [1]
+        raksha_checks: [vpn_mfa_enforced]
+      - id: "6.5"
+        title: Require MFA for admin access
+        ig: [1]
+        raksha_checks: [admin_mfa_enforced]
+
+  - id: CIS.7
+    title: Continuous Vulnerability Management
+    ig: [2, 3]
+    safeguards:
+      - id: "7.1"
+        title: Establish vulnerability management process
+        ig: [2]
+        raksha_checks: [vuln_scan_scheduled, remediation_sla_defined]
+      - id: "7.4"
+        title: Perform automated application patch management
+        ig: [2]
+        raksha_checks: [patch_compliance_above_95, critical_patch_sla_met]
+    integration: [feeds.nvd, feeds.cisa_kev]
+
+  - id: CIS.8
+    title: Audit Log Management
+    ig: [1, 2, 3]
+    safeguards:
+      - id: "8.1"
+        title: Establish audit log management process
+        ig: [1]
+        raksha_checks: [centralized_logging, log_retention_90d]
+      - id: "8.5"
+        title: Collect detailed audit logs
+        ig: [2]
+        raksha_checks: [detailed_logging_enabled, authentication_logs_collected]
+      - id: "8.11"
+        title: Conduct audit log reviews
+        ig: [2]
+        raksha_checks: [log_review_automated, anomaly_alerting_active]
+
+  - id: CIS.9
+    title: Email and Web Browser Protections
+    ig: [1, 2, 3]
+    safeguards:
+      - id: "9.2"
+        title: Use DNS filtering services
+        ig: [1]
+        raksha_checks: [dns_filtering_active, malicious_domain_blocking]
+    rules: [raksha-exfil-002]
+
+  - id: CIS.10
+    title: Malware Defenses
+    ig: [1, 2, 3]
+    safeguards:
+      - id: "10.1"
+        title: Deploy and maintain anti-malware software
+        ig: [1]
+        raksha_checks: [edr_deployed, signature_updates_current]
+      - id: "10.4"
+        title: Configure automatic anti-malware scanning
+        ig: [2]
+        raksha_checks: [realtime_scanning_enabled, scheduled_scans_active]
+      - id: "10.7"
+        title: Use behavior-based anti-malware
+        ig: [2]
+        raksha_checks: [behavioral_detection_active, ml_anomaly_detection]
+    rules: [raksha-mal-001, raksha-mal-002, raksha-mal-003, raksha-mal-004, raksha-mal-005]
+    integration: [anomaly_detector]
+
+  - id: CIS.13
+    title: Network Monitoring and Defense
+    ig: [2, 3]
+    safeguards:
+      - id: "13.1"
+        title: Centralize security event alerting
+        ig: [2]
+        raksha_checks: [siem_operational, alert_correlation_active]
+      - id: "13.3"
+        title: Deploy network intrusion detection
+        ig: [2]
+        raksha_checks: [nids_deployed, network_anomaly_detection_active]
+      - id: "13.6"
+        title: Collect network traffic flow logs
+        ig: [2]
+        raksha_checks: [netflow_collection, traffic_baseline_established]
+    rules: [raksha-ps-001, raksha-ps-002, raksha-ps-003, raksha-ps-004]
+    integration: [network_analyzer]
+
+  - id: CIS.16
+    title: Application Software Security
+    ig: [2, 3]
+    safeguards:
+      - id: "16.1"
+        title: Establish secure application development process
+        ig: [2]
+        raksha_checks: [sdlc_security_gates, sast_in_pipeline]
+      - id: "16.12"
+        title: Implement code-level security checks
+        ig: [3]
+        raksha_checks: [sast_scan_clean, dast_scan_clean, dependency_check_clean]
+
+  - id: CIS.17
+    title: Incident Response Management
+    ig: [1, 2, 3]
+    safeguards:
+      - id: "17.1"
+        title: Designate personnel for incident handling
+        ig: [1]
+        raksha_checks: [ir_team_defined, on_call_roster_current]
+      - id: "17.4"
+        title: Establish incident response process
+        ig: [1]
+        raksha_checks: [ir_plan_approved, playbooks_defined]
+      - id: "17.8"
+        title: Conduct post-incident reviews
+        ig: [2]
+        raksha_checks: [post_mortem_completed, lessons_learned_tracked]
+
+    rules: [raksha-bf-001, raksha-bf-002, raksha-bf-004]
