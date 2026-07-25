@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 260">
+  <rect width="800" height="260" fill="#0f172a" rx="12"/>
+  <text x="400" y="28" text-anchor="middle" fill="#f8fafc" font-family="system-ui" font-size="14" font-weight="bold">HONEYPOT DECEPTION SYSTEM</text>
+  <rect x="40" y="50" width="160" height="80" fill="#1e293b" rx="8" stroke="#ef4444" stroke-width="1.5"/>
+  <text x="120" y="72" text-anchor="middle" fill="#fca5a5" font-family="system-ui" font-size="10" font-weight="bold">SSH Honeypot</text>
+  <text x="60" y="92" fill="#64748b" font-family="system-ui" font-size="8">Port 2222</text>
+  <text x="60" y="106" fill="#64748b" font-family="system-ui" font-size="8">Captures credentials</text>
+  <text x="60" y="120" fill="#64748b" font-family="system-ui" font-size="8">Command logging</text>
+  <rect x="220" y="50" width="160" height="80" fill="#1e293b" rx="8" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="300" y="72" text-anchor="middle" fill="#fcd34d" font-family="system-ui" font-size="10" font-weight="bold">HTTP Honeypot</text>
+  <text x="240" y="92" fill="#64748b" font-family="system-ui" font-size="8">Fake admin panels</text>
+  <text x="240" y="106" fill="#64748b" font-family="system-ui" font-size="8">Scanner detection</text>
+  <text x="240" y="120" fill="#64748b" font-family="system-ui" font-size="8">Payload capture</text>
+  <rect x="400" y="50" width="160" height="80" fill="#1e293b" rx="8" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="480" y="72" text-anchor="middle" fill="#c4b5fd" font-family="system-ui" font-size="10" font-weight="bold">SMTP Honeypot</text>
+  <text x="420" y="92" fill="#64748b" font-family="system-ui" font-size="8">Spam detection</text>
+  <text x="420" y="106" fill="#64748b" font-family="system-ui" font-size="8">Relay attempts</text>
+  <text x="420" y="120" fill="#64748b" font-family="system-ui" font-size="8">Phishing traps</text>
+  <rect x="580" y="50" width="180" height="80" fill="#1e293b" rx="8" stroke="#10b981" stroke-width="1.5"/>
+  <text x="670" y="72" text-anchor="middle" fill="#6ee7b7" font-family="system-ui" font-size="10" font-weight="bold">MySQL Honeypot</text>
+  <text x="600" y="92" fill="#64748b" font-family="system-ui" font-size="8">Auth brute-force</text>
+  <text x="600" y="106" fill="#64748b" font-family="system-ui" font-size="8">SQL injection traps</text>
+  <text x="600" y="120" fill="#64748b" font-family="system-ui" font-size="8">Data exfil detection</text>
+  <rect x="40" y="150" width="720" height="95" fill="#1e293b" rx="8" stroke="#334155"/>
+  <text x="400" y="172" text-anchor="middle" fill="#e2e8f0" font-family="system-ui" font-size="10" font-weight="bold">Zero False-Positive Alerting</text>
+  <text x="60" y="195" fill="#94a3b8" font-family="system-ui" font-size="9">Any interaction with honeypot = confirmed malicious</text>
+  <text x="60" y="213" fill="#94a3b8" font-family="system-ui" font-size="9">Instant alert via Telegram + Email + Webhook</text>
+  <text x="60" y="231" fill="#94a3b8" font-family="system-ui" font-size="9">Attacker IP auto-blocked across all agents</text>
+  <circle cx="720" cy="200" r="15" fill="none" stroke="#ef4444" stroke-width="2"><animate attributeName="r" values="10;20;10" dur="1.5s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite"/></circle>
+  <text x="720" y="204" text-anchor="middle" fill="#ef4444" font-family="system-ui" font-size="8">ALERT</text>
+</svg>

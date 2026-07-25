@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 350">
+  <rect width="800" height="350" fill="#0f172a" rx="12"/>
+  <text x="400" y="30" text-anchor="middle" fill="#f8fafc" font-family="system-ui" font-size="14" font-weight="bold">AGENT ENROLLMENT FLOW</text>
+  <rect x="30" y="55" width="140" height="55" fill="#1e293b" rx="8" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="100" y="78" text-anchor="middle" fill="#93c5fd" font-family="system-ui" font-size="11">👤 Admin</text>
+  <text x="100" y="96" text-anchor="middle" fill="#64748b" font-family="system-ui" font-size="9">Generate Token</text>
+  <rect x="320" y="55" width="160" height="55" fill="#1e293b" rx="8" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="400" y="78" text-anchor="middle" fill="#c4b5fd" font-family="system-ui" font-size="11">🔱 Raksha Portal</text>
+  <text x="400" y="96" text-anchor="middle" fill="#64748b" font-family="system-ui" font-size="9">Validate + Issue Cert</text>
+  <rect x="620" y="55" width="150" height="55" fill="#1e293b" rx="8" stroke="#10b981" stroke-width="1.5"/>
+  <text x="695" y="78" text-anchor="middle" fill="#6ee7b7" font-family="system-ui" font-size="11">🖥️ Target Server</text>
+  <text x="695" y="96" text-anchor="middle" fill="#64748b" font-family="system-ui" font-size="9">Install Agent</text>
+  <line x1="170" y1="82" x2="318" y2="82" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="6,3">
+    <animate attributeName="stroke-dashoffset" values="0;-18" dur="1s" repeatCount="indefinite"/>
+  </line>
+  <polygon points="315,77 325,82 315,87" fill="#3b82f6"/>
+  <text x="244" y="74" text-anchor="middle" fill="#94a3b8" font-family="system-ui" font-size="9">1. Request Token</text>
+  <line x1="480" y1="82" x2="618" y2="82" stroke="#8b5cf6" stroke-width="1.5" stroke-dasharray="6,3">
+    <animate attributeName="stroke-dashoffset" values="0;-18" dur="1s" repeatCount="indefinite" begin="1s"/>
+  </line>
+  <polygon points="615,77 625,82 615,87" fill="#8b5cf6"/>
+  <text x="549" y="74" text-anchor="middle" fill="#94a3b8" font-family="system-ui" font-size="9">3. Install Script</text>
+  <rect x="50" y="130" width="700" height="50" fill="#1e293b" rx="8" stroke="#f59e0b"/>
+  <text x="400" y="150" text-anchor="middle" fill="#94a3b8" font-family="system-ui" font-size="10">TOKEN FORMAT</text>
+  <text x="400" y="170" text-anchor="middle" fill="#f59e0b" font-family="monospace" font-size="12">rkat_0192a3b4_deadbeef0123456789abcdef01234567</text>
+  <rect x="50" y="200" width="220" height="135" fill="#1e293b" rx="8" stroke="#10b981"/>
+  <text x="160" y="222" text-anchor="middle" fill="#10b981" font-family="system-ui" font-size="11" font-weight="bold">✅ Security</text>
+  <text x="70" y="245" fill="#94a3b8" font-family="system-ui" font-size="10">• mTLS certificate binding</text>
+  <text x="70" y="265" fill="#94a3b8" font-family="system-ui" font-size="10">• Machine fingerprint lock</text>
+  <text x="70" y="285" fill="#94a3b8" font-family="system-ui" font-size="10">• Token expiry (24h)</text>
+  <text x="70" y="305" fill="#94a3b8" font-family="system-ui" font-size="10">• Single-use enforcement</text>
+  <text x="70" y="325" fill="#94a3b8" font-family="system-ui" font-size="10">• HMAC-SHA256 signed</text>
+  <rect x="290" y="200" width="220" height="135" fill="#1e293b" rx="8" stroke="#8b5cf6"/>
+  <text x="400" y="222" text-anchor="middle" fill="#8b5cf6" font-family="system-ui" font-size="11" font-weight="bold">🏢 Multi-Tenant</text>
+  <text x="310" y="245" fill="#94a3b8" font-family="system-ui" font-size="10">• Separate CA per portal</text>
+  <text x="310" y="265" fill="#94a3b8" font-family="system-ui" font-size="10">• Isolated databases</text>
+  <text x="310" y="285" fill="#94a3b8" font-family="system-ui" font-size="10">• No cross-portal leak</text>
+  <text x="310" y="305" fill="#94a3b8" font-family="system-ui" font-size="10">• Portal URL locked</text>
+  <text x="310" y="325" fill="#94a3b8" font-family="system-ui" font-size="10">• Cert chain validation</text>
+  <rect x="530" y="200" width="220" height="135" fill="#1e293b" rx="8" stroke="#f59e0b"/>
+  <text x="640" y="222" text-anchor="middle" fill="#f59e0b" font-family="system-ui" font-size="11" font-weight="bold">🌐 Cross-Platform</text>
+  <text x="550" y="245" fill="#94a3b8" font-family="system-ui" font-size="10">• Linux (systemd/OpenRC)</text>
+  <text x="550" y="265" fill="#94a3b8" font-family="system-ui" font-size="10">• macOS (launchd)</text>
+  <text x="550" y="285" fill="#94a3b8" font-family="system-ui" font-size="10">• Windows (Service)</text>
+  <text x="550" y="305" fill="#94a3b8" font-family="system-ui" font-size="10">• ARM64 + x86_64</text>
+  <text x="550" y="325" fill="#94a3b8" font-family="system-ui" font-size="10">• Alpine, RHEL, Debian</text>
+</svg>

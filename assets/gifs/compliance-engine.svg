@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 280">
+  <rect width="800" height="280" fill="#0f172a" rx="12"/>
+  <text x="400" y="28" text-anchor="middle" fill="#f8fafc" font-family="system-ui" font-size="14" font-weight="bold">COMPLIANCE ENGINE</text>
+  <rect x="40" y="50" width="170" height="90" fill="#1e293b" rx="8" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="125" y="72" text-anchor="middle" fill="#93c5fd" font-family="system-ui" font-size="10" font-weight="bold">CIS Benchmarks</text>
+  <text x="60" y="92" fill="#64748b" font-family="system-ui" font-size="8">Ubuntu v2.0 - 95%</text>
+  <text x="60" y="106" fill="#64748b" font-family="system-ui" font-size="8">RHEL v3.0 - 93%</text>
+  <text x="60" y="120" fill="#64748b" font-family="system-ui" font-size="8">K8s v1.8 - 85%</text>
+  <text x="60" y="134" fill="#64748b" font-family="system-ui" font-size="8">Docker v1.6 - 88%</text>
+  <rect x="225" y="50" width="170" height="90" fill="#1e293b" rx="8" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="310" y="72" text-anchor="middle" fill="#c4b5fd" font-family="system-ui" font-size="10" font-weight="bold">NIST 800-53 r5</text>
+  <text x="245" y="92" fill="#64748b" font-family="system-ui" font-size="8">AC: 42 checks</text>
+  <text x="245" y="106" fill="#64748b" font-family="system-ui" font-size="8">AU: 28 checks</text>
+  <text x="245" y="120" fill="#64748b" font-family="system-ui" font-size="8">CM: 35 checks</text>
+  <text x="245" y="134" fill="#64748b" font-family="system-ui" font-size="8">SC: 38 checks</text>
+  <rect x="410" y="50" width="170" height="90" fill="#1e293b" rx="8" stroke="#10b981" stroke-width="1.5"/>
+  <text x="495" y="72" text-anchor="middle" fill="#6ee7b7" font-family="system-ui" font-size="10" font-weight="bold">PCI-DSS v4.0</text>
+  <text x="430" y="92" fill="#64748b" font-family="system-ui" font-size="8">12 Requirements</text>
+  <text x="430" y="106" fill="#64748b" font-family="system-ui" font-size="8">185 Total Checks</text>
+  <text x="430" y="120" fill="#64748b" font-family="system-ui" font-size="8">Auto Evidence</text>
+  <text x="430" y="134" fill="#64748b" font-family="system-ui" font-size="8">PDF/JSON Reports</text>
+  <rect x="595" y="50" width="170" height="90" fill="#1e293b" rx="8" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="680" y="72" text-anchor="middle" fill="#fcd34d" font-family="system-ui" font-size="10" font-weight="bold">ISO 27001:2022</text>
+  <text x="615" y="92" fill="#64748b" font-family="system-ui" font-size="8">Annex A Controls</text>
+  <text x="615" y="106" fill="#64748b" font-family="system-ui" font-size="8">Tech: Full Auto</text>
+  <text x="615" y="120" fill="#64748b" font-family="system-ui" font-size="8">Org: Partial</text>
+  <text x="615" y="134" fill="#64748b" font-family="system-ui" font-size="8">OSCAL Export</text>
+  <rect x="40" y="160" width="720" height="105" fill="#1e293b" rx="8" stroke="#334155"/>
+  <text x="400" y="182" text-anchor="middle" fill="#e2e8f0" font-family="system-ui" font-size="10" font-weight="bold">Compliance Score Over Time</text>
+  <polyline points="70,240 130,235 190,225 250,220 310,215 370,210 430,205 490,200 550,198 610,195 670,192 730,190" fill="none" stroke="#10b981" stroke-width="2"><animate attributeName="points" values="70,240 130,235 190,225 250,220 310,215 370,210 430,205 490,200 550,198 610,195 670,192 730,190;70,238 130,232 190,228 250,218 310,212 370,208 430,202 490,198 550,195 610,192 670,190 730,188;70,240 130,235 190,225 250,220 310,215 370,210 430,205 490,200 550,198 610,195 670,192 730,190" dur="5s" repeatCount="indefinite"/></polyline>
+  <line x1="70" y1="210" x2="730" y2="210" stroke="#334155" stroke-dasharray="3,3"/>
+  <text x="735" y="213" fill="#64748b" font-family="system-ui" font-size="7">target: 95%</text>
+  <text x="400" y="258" text-anchor="middle" fill="#10b981" font-family="system-ui" font-size="11">Current Score: 94.2%<animate attributeName="opacity" values="1;0.6;1" dur="2s" repeatCount="indefinite"/></text>
+</svg>

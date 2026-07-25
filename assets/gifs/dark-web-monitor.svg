@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 250">
+  <rect width="800" height="250" fill="#0f172a" rx="12"/>
+  <text x="400" y="28" text-anchor="middle" fill="#f8fafc" font-family="system-ui" font-size="14" font-weight="bold">DARK WEB MONITORING</text>
+  <rect x="40" y="50" width="220" height="85" fill="#1e293b" rx="8" stroke="#ef4444" stroke-width="1.5"/>
+  <text x="150" y="72" text-anchor="middle" fill="#fca5a5" font-family="system-ui" font-size="10" font-weight="bold">Credential Leak Detection</text>
+  <text x="60" y="92" fill="#64748b" font-family="system-ui" font-size="9">Monitor company domains</text>
+  <text x="60" y="108" fill="#64748b" font-family="system-ui" font-size="9">Breach database check</text>
+  <text x="60" y="124" fill="#64748b" font-family="system-ui" font-size="9">Real-time alerts on leak</text>
+  <rect x="290" y="50" width="220" height="85" fill="#1e293b" rx="8" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="400" y="72" text-anchor="middle" fill="#c4b5fd" font-family="system-ui" font-size="10" font-weight="bold">Paste Site Monitoring</text>
+  <text x="310" y="92" fill="#64748b" font-family="system-ui" font-size="9">Pastebin scanning</text>
+  <text x="310" y="108" fill="#64748b" font-family="system-ui" font-size="9">Keyword watchlist</text>
+  <text x="310" y="124" fill="#64748b" font-family="system-ui" font-size="9">Pattern matching (regex)</text>
+  <rect x="540" y="50" width="220" height="85" fill="#1e293b" rx="8" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="650" y="72" text-anchor="middle" fill="#fcd34d" font-family="system-ui" font-size="10" font-weight="bold">Domain Watchlist</text>
+  <text x="560" y="92" fill="#64748b" font-family="system-ui" font-size="9">Typosquatting detection</text>
+  <text x="560" y="108" fill="#64748b" font-family="system-ui" font-size="9">Lookalike domains</text>
+  <text x="560" y="124" fill="#64748b" font-family="system-ui" font-size="9">Brand impersonation</text>
+  <rect x="40" y="155" width="720" height="80" fill="#1e293b" rx="8" stroke="#334155"/>
+  <text x="400" y="178" text-anchor="middle" fill="#e2e8f0" font-family="system-ui" font-size="10" font-weight="bold">Detection Pipeline</text>
+  <rect x="60" y="192" width="100" height="28" fill="#312e81" rx="4"/>
+  <text x="110" y="210" text-anchor="middle" fill="#a5b4fc" font-family="system-ui" font-size="8">Crawl Sources</text>
+  <line x1="160" y1="206" x2="195" y2="206" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"><animate attributeName="stroke-dashoffset" values="0;-10" dur="0.8s" repeatCount="indefinite"/></line>
+  <rect x="198" y="192" width="100" height="28" fill="#312e81" rx="4"/>
+  <text x="248" y="210" text-anchor="middle" fill="#a5b4fc" font-family="system-ui" font-size="8">Parse + Match</text>
+  <line x1="298" y1="206" x2="333" y2="206" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"><animate attributeName="stroke-dashoffset" values="0;-10" dur="0.8s" repeatCount="indefinite" begin="0.2s"/></line>
+  <rect x="336" y="192" width="100" height="28" fill="#312e81" rx="4"/>
+  <text x="386" y="210" text-anchor="middle" fill="#a5b4fc" font-family="system-ui" font-size="8">Deduplicate</text>
+  <line x1="436" y1="206" x2="471" y2="206" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"><animate attributeName="stroke-dashoffset" values="0;-10" dur="0.8s" repeatCount="indefinite" begin="0.4s"/></line>
+  <rect x="474" y="192" width="100" height="28" fill="#312e81" rx="4"/>
+  <text x="524" y="210" text-anchor="middle" fill="#a5b4fc" font-family="system-ui" font-size="8">Score Risk</text>
+  <line x1="574" y1="206" x2="609" y2="206" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"><animate attributeName="stroke-dashoffset" values="0;-10" dur="0.8s" repeatCount="indefinite" begin="0.6s"/></line>
+  <rect x="612" y="192" width="130" height="28" fill="#7f1d1d" rx="4"/>
+  <text x="677" y="210" text-anchor="middle" fill="#fca5a5" font-family="system-ui" font-size="8">Alert + Remediate</text>
+</svg>

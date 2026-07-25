@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300">
+  <rect width="800" height="300" fill="#0f172a" rx="12"/>
+  <text x="400" y="28" text-anchor="middle" fill="#f8fafc" font-family="system-ui" font-size="14" font-weight="bold">INCIDENT RESPONSE LIFECYCLE</text>
+  <rect x="40" y="50" width="110" height="50" fill="#1e293b" rx="8" stroke="#ef4444" stroke-width="1.5"/>
+  <text x="95" y="72" text-anchor="middle" fill="#fca5a5" font-family="system-ui" font-size="10" font-weight="bold">DETECT</text>
+  <text x="95" y="88" text-anchor="middle" fill="#64748b" font-family="system-ui" font-size="8">ML + Rules</text>
+  <line x1="150" y1="75" x2="185" y2="75" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,2"><animate attributeName="stroke-dashoffset" values="0;-12" dur="0.8s" repeatCount="indefinite"/></line>
+  <polygon points="183,70 193,75 183,80" fill="#f59e0b"/>
+  <rect x="195" y="50" width="110" height="50" fill="#1e293b" rx="8" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="250" y="72" text-anchor="middle" fill="#fcd34d" font-family="system-ui" font-size="10" font-weight="bold">TRIAGE</text>
+  <text x="250" y="88" text-anchor="middle" fill="#64748b" font-family="system-ui" font-size="8">Auto-classify</text>
+  <line x1="305" y1="75" x2="340" y2="75" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="4,2"><animate attributeName="stroke-dashoffset" values="0;-12" dur="0.8s" repeatCount="indefinite" begin="0.3s"/></line>
+  <polygon points="338,70 348,75 338,80" fill="#3b82f6"/>
+  <rect x="350" y="50" width="110" height="50" fill="#1e293b" rx="8" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="405" y="72" text-anchor="middle" fill="#93c5fd" font-family="system-ui" font-size="10" font-weight="bold">RESPOND</text>
+  <text x="405" y="88" text-anchor="middle" fill="#64748b" font-family="system-ui" font-size="8">Playbooks</text>
+  <line x1="460" y1="75" x2="495" y2="75" stroke="#8b5cf6" stroke-width="1.5" stroke-dasharray="4,2"><animate attributeName="stroke-dashoffset" values="0;-12" dur="0.8s" repeatCount="indefinite" begin="0.6s"/></line>
+  <polygon points="493,70 503,75 493,80" fill="#8b5cf6"/>
+  <rect x="505" y="50" width="110" height="50" fill="#1e293b" rx="8" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="560" y="72" text-anchor="middle" fill="#c4b5fd" font-family="system-ui" font-size="10" font-weight="bold">CONTAIN</text>
+  <text x="560" y="88" text-anchor="middle" fill="#64748b" font-family="system-ui" font-size="8">Auto-isolate</text>
+  <line x1="615" y1="75" x2="650" y2="75" stroke="#10b981" stroke-width="1.5" stroke-dasharray="4,2"><animate attributeName="stroke-dashoffset" values="0;-12" dur="0.8s" repeatCount="indefinite" begin="0.9s"/></line>
+  <polygon points="648,70 658,75 648,80" fill="#10b981"/>
+  <rect x="660" y="50" width="110" height="50" fill="#1e293b" rx="8" stroke="#10b981" stroke-width="1.5"/>
+  <text x="715" y="72" text-anchor="middle" fill="#6ee7b7" font-family="system-ui" font-size="10" font-weight="bold">RECOVER</text>
+  <text x="715" y="88" text-anchor="middle" fill="#64748b" font-family="system-ui" font-size="8">Restore</text>
+  <rect x="40" y="120" width="350" height="165" fill="#1e293b" rx="8" stroke="#334155"/>
+  <text x="215" y="142" text-anchor="middle" fill="#e2e8f0" font-family="system-ui" font-size="10" font-weight="bold">YAML Playbook Engine</text>
+  <text x="60" y="164" fill="#f59e0b" font-family="monospace" font-size="9">name: ransomware_response</text>
+  <text x="60" y="180" fill="#64748b" font-family="monospace" font-size="9">severity: critical</text>
+  <text x="60" y="196" fill="#64748b" font-family="monospace" font-size="9">steps:</text>
+  <text x="60" y="212" fill="#10b981" font-family="monospace" font-size="9">  - isolate_network</text>
+  <text x="60" y="228" fill="#10b981" font-family="monospace" font-size="9">  - snapshot_memory</text>
+  <text x="60" y="244" fill="#10b981" font-family="monospace" font-size="9">  - block_iocs</text>
+  <text x="60" y="260" fill="#10b981" font-family="monospace" font-size="9">  - notify_team</text>
+  <text x="60" y="276" fill="#10b981" font-family="monospace" font-size="9">  - escalate_if_spread</text>
+  <rect x="410" y="120" width="360" height="165" fill="#1e293b" rx="8" stroke="#334155"/>
+  <text x="590" y="142" text-anchor="middle" fill="#e2e8f0" font-family="system-ui" font-size="10" font-weight="bold">Features</text>
+  <text x="430" y="164" fill="#94a3b8" font-family="system-ui" font-size="9">- Auto-escalation based on severity + time</text>
+  <text x="430" y="182" fill="#94a3b8" font-family="system-ui" font-size="9">- Timeline tracking with evidence attach</text>
+  <text x="430" y="200" fill="#94a3b8" font-family="system-ui" font-size="9">- Multi-assignee with role-based actions</text>
+  <text x="430" y="218" fill="#94a3b8" font-family="system-ui" font-size="9">- SLA tracking (MTTD, MTTR metrics)</text>
+  <text x="430" y="236" fill="#94a3b8" font-family="system-ui" font-size="9">- Post-incident review generation</text>
+  <text x="430" y="254" fill="#94a3b8" font-family="system-ui" font-size="9">- Telegram + Email alert on trigger</text>
+  <text x="430" y="272" fill="#94a3b8" font-family="system-ui" font-size="9">- Custom playbook YAML authoring</text>
+</svg>

@@ -38,7 +38,7 @@ Part of the [Nawala Ecosystem](https://github.com/dansiapa/nawala-gateway-platfo
 ## Architecture
 
 <p align="center">
-  <img src="assets/diagrams/architecture.svg" alt="Raksha Architecture" width="100%"/>
+  <img src="assets/gifs/architecture-full.svg" alt="Raksha Architecture" width="100%"/>
 </p>
 
 ---
@@ -86,10 +86,66 @@ Part of the [Nawala Ecosystem](https://github.com/dansiapa/nawala-gateway-platfo
 
 ---
 
+## Dashboard Preview
+
+<p align="center">
+  <img src="assets/gifs/dashboard-overview.svg" alt="Dashboard Overview" width="100%"/>
+</p>
+
+---
+
+## ML-Powered Threat Detection
+
+<p align="center">
+  <img src="assets/gifs/threat-detection.svg" alt="ML Threat Detection" width="100%"/>
+</p>
+
+---
+
+## Incident Response
+
+<p align="center">
+  <img src="assets/gifs/incident-response.svg" alt="Incident Response" width="100%"/>
+</p>
+
+---
+
+## Notification System
+
+<p align="center">
+  <img src="assets/gifs/notification-system.svg" alt="Notification System" width="100%"/>
+</p>
+
+---
+
+## Compliance Engine
+
+<p align="center">
+  <img src="assets/gifs/compliance-engine.svg" alt="Compliance Engine" width="100%"/>
+</p>
+
+---
+
+## Honeypot Deception
+
+<p align="center">
+  <img src="assets/gifs/honeypot-deception.svg" alt="Honeypot Deception" width="100%"/>
+</p>
+
+---
+
+## Dark Web Monitoring
+
+<p align="center">
+  <img src="assets/gifs/dark-web-monitor.svg" alt="Dark Web Monitor" width="100%"/>
+</p>
+
+---
+
 ## Agent Enrollment
 
 <p align="center">
-  <img src="assets/diagrams/enrollment-flow.svg" alt="Agent Enrollment Flow" width="100%"/>
+  <img src="assets/gifs/agent-enrollment.svg" alt="Agent Enrollment Flow" width="100%"/>
 </p>
 
 ### Token Format
@@ -303,6 +359,11 @@ raksha-security-platform/
 | [Security Standards](docs/SECURITY-STANDARDS.md) | Supported compliance frameworks |
 | [Security Testing](docs/SECURITY-TESTING.md) | Penetration testing playbook |
 | [Bug Bounty](docs/BUG-BOUNTY.md) | Community recognition program |
+| [Incident Response](docs/INCIDENT-RESPONSE.md) | Playbook engine and lifecycle |
+| [Notification Setup](docs/NOTIFICATION-SETUP.md) | Email, Telegram, Webhook config |
+| [Dark Web Monitoring](docs/DARK-WEB-MONITORING.md) | Credential leak detection setup |
+| [Honeypot Deployment](docs/HONEYPOT-DEPLOYMENT.md) | Deception system configuration |
+| [Container Security](docs/CONTAINER-SECURITY.md) | K8s admission and image scanning |
 
 ---
 
