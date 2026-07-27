@@ -6,8 +6,9 @@ Raksha Security Platform takes security seriously. We appreciate the community's
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.x.x   | :white_check_mark: |
-| < 0.1.0 | :x:                |
+| 1.0.0   | :white_check_mark: |
+| > 1.0.0 | :x:                |
+| < 1.0.0 | :x:                |
 
 Only the latest release on the `main` branch receives security patches. Older versions are not backported unless a critical vulnerability affects production deployments.
 
