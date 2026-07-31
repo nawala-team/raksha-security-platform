@@ -116,6 +116,7 @@ export const api = {
       labels?: string[];
       expiry_hours?: number;
       max_uses?: number;
+      allowed_modules?: string[];
     }) => apiClient.post("/agents/tokens", data || {}),
     listTokens: () => apiClient.get("/agents/tokens"),
     revokeToken: (tokenId: string) => apiClient.delete(`/agents/tokens/${tokenId}`),

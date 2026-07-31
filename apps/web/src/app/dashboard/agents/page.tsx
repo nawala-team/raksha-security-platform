@@ -46,6 +46,7 @@ export default function AgentsPage() {
         labels: [],
         expiry_hours: 24,
         max_uses: 1,
+        allowed_modules: ["server", "network"],
       });
 
       setGeneratedToken(response as unknown as GeneratedToken);
