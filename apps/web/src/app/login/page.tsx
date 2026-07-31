@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { api, apiClient } from "@/lib/api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -26,17 +27,26 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
 
-    // Simulate login
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    if (!showMfa) {
-      setShowMfa(true);
-      setIsLoading(false);
+    if (showMfa) {
+      // After MFA, redirect to dashboard.
+      window.location.href = "/dashboard";
       return;
     }
 
-    // After MFA, redirect to dashboard
-    window.location.href = "/dashboard";
+    try {
+      // Call the real auth API
+      const response = await api.auth.login({ email, password });
+      
+      // Store token in localStorage and API client
+      localStorage.setItem("raksha_auth_token", JSON.stringify(response.tokens));
+      apiClient.setToken(response.tokens.access_token);
+      
+      // Redirect to dashboard
+      window.location.href = "/dashboard";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
+      setIsLoading(false);
+    }
   };
 
   return (

@@ -1,6 +1,7 @@
-import type { ApiResponse, AuthToken, LoginCredentials } from "@/types";
+import type { ApiResponse, AuthToken, AuthResponse, LoginCredentials } from "@/types";
 
-const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:3001/api";
+// Keep browser requests same-origin; Next.js proxies /api to the internal portal.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
 class ApiClient {
   private baseUrl: string;
@@ -8,6 +9,19 @@ class ApiClient {
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
+
+    // Restore token from localStorage on init
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("raksha_auth_token");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          this.token = parsed.access_token || null;
+        } catch {
+          localStorage.removeItem("raksha_auth_token");
+        }
+      }
+    }
   }
 
   setToken(token: string) {
@@ -16,12 +30,19 @@ class ApiClient {
 
   clearToken() {
     this.token = null;
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("raksha_auth_token");
+    }
+  }
+
+  getToken(): string | null {
+    return this.token;
   }
 
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
+  ): Promise<T> {
     const headers: HeadersInit = {
       "Content-Type": "application/json",
       ...options.headers,
@@ -38,33 +59,33 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({
-        message: "An unexpected error occurred",
+        error: { message: "An unexpected error occurred" },
       }));
-      throw new Error(error.message || `HTTP ${response.status}`);
+      throw new Error(error.error?.message || `HTTP ${response.status}`);
     }
 
     return response.json();
   }
 
-  async get<T>(endpoint: string): Promise<ApiResponse<T>> {
+  async get<T>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: "GET" });
   }
 
-  async post<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
+  async post<T>(endpoint: string, data?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: "POST",
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  async put<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
+  async put<T>(endpoint: string, data?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: "PUT",
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
+  async delete<T>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: "DELETE" });
   }
 }
@@ -75,16 +96,33 @@ export const apiClient = new ApiClient(API_BASE_URL);
 export const api = {
   auth: {
     login: (credentials: LoginCredentials) =>
-      apiClient.post<AuthToken>("/auth/login", credentials),
-    logout: () => apiClient.post("/auth/logout"),
+      apiClient.post<AuthResponse>("/auth/login", credentials),
+    register: (data: { email: string; password: string; name: string }) =>
+      apiClient.post<AuthResponse>("/auth/register", data),
+    logout: () => apiClient.post<{ message: string }>("/auth/logout"),
     refresh: (refreshToken: string) =>
-      apiClient.post<AuthToken>("/auth/refresh", { refreshToken }),
-    verifyMfa: (code: string) =>
-      apiClient.post<AuthToken>("/auth/mfa/verify", { code }),
+      apiClient.post<AuthToken>("/auth/refresh", { refresh_token: refreshToken }),
   },
   dashboard: {
     stats: () => apiClient.get("/dashboard/stats"),
     securityScore: () => apiClient.get("/dashboard/security-score"),
+  },
+  agents: {
+    list: () => apiClient.get("/agents"),
+    get: (id: string) => apiClient.get(`/agents/${id}`),
+    metrics: (id: string) => apiClient.get(`/agents/${id}/metrics`),
+    generateToken: (data?: {
+      agent_name?: string;
+      labels?: string[];
+      expiry_hours?: number;
+      max_uses?: number;
+    }) => apiClient.post("/agents/tokens", data || {}),
+    listTokens: () => apiClient.get("/agents/tokens"),
+    revokeToken: (tokenId: string) => apiClient.delete(`/agents/tokens/${tokenId}`),
+    enroll: (data: { token: string; fingerprint: Record<string, unknown> }) =>
+      apiClient.post("/agents/enroll", data),
+    rotateCertificate: (agentId: string) =>
+      apiClient.post(`/agents/${agentId}/rotate-certificate`),
   },
   alerts: {
     list: (params?: Record<string, string>) => {

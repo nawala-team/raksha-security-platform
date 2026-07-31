@@ -6,6 +6,7 @@ interface GeneratedToken {
   token_id: string;
   token: string;
   expires_at: string;
+  max_uses: number;
   install_command_linux: string;
   install_command_windows: string;
 }

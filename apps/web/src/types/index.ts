@@ -207,7 +207,13 @@ export interface LoginCredentials {
 }
 
 export interface AuthToken {
-  accessToken: string;
-  refreshToken: string;
-  expiresAt: string;
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  token_type: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  tokens: AuthToken;
 }
