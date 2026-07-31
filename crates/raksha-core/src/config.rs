@@ -40,6 +40,7 @@ pub struct JwtConfig {
     pub access_token_ttl_secs: i64,
     pub refresh_token_ttl_secs: i64,
     pub issuer: String,
+    pub audience: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -70,6 +71,7 @@ impl AppConfig {
             .set_default("jwt.access_token_ttl_secs", 900)?
             .set_default("jwt.refresh_token_ttl_secs", 604800)?
             .set_default("jwt.issuer", "raksha-platform")?
+            .set_default("jwt.audience", "raksha-platform")?
             .set_default("app.name", "Raksha Security Platform")?
             .set_default("app.environment", "development")?
             .set_default("app.log_level", "info")?

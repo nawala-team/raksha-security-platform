@@ -96,7 +96,7 @@ async fn resolve_tenant_for_user(
         r#"
         SELECT t.id as "id!"
         FROM tenants t
-        INNER JOIN user_role_assignments ura ON ura.org_id = t.id
+        INNER JOIN user_roles ura ON ura.org_id = t.id
         WHERE ura.user_id = $1 AND ura.is_active = true AND t.status = 'active'
         ORDER BY ura.granted_at ASC
         LIMIT 1

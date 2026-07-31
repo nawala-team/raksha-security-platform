@@ -335,7 +335,9 @@ async fn get_tenant_stats(
     .await?;
 
     let alert_count = sqlx::query_scalar!(
-        r#"SELECT COUNT(*) as "count!" FROM alerts WHERE org_id = $1"#,
+        r#"SELECT COUNT(*) as "count!" FROM alerts a
+        INNER JOIN agents ag ON a.agent_id = ag.id
+        WHERE ag.org_id = $1"#,
         tenant_id
     )
     .fetch_one(&state.db)
@@ -344,7 +346,7 @@ async fn get_tenant_stats(
     let user_count = sqlx::query_scalar!(
         r#"
         SELECT COUNT(DISTINCT ura.user_id) as "count!"
-        FROM user_role_assignments ura
+        FROM user_roles ura
         WHERE ura.org_id = $1 AND ura.is_active = true
         "#,
         tenant_id

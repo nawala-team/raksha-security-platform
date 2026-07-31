@@ -523,3 +523,32 @@ fn stop_service() {
     }
 }
 
+// ─── Android/Termux fallback ──────────────────────────────────────────
+// Service management is not available on Android. The agent runs in
+// foreground mode only.
+
+#[cfg(target_os = "android")]
+fn install_service() {
+    eprintln!("Error: Service installation is not supported on Android.");
+    eprintln!("Run 'raksha-agent run' to start the agent in foreground mode.");
+    std::process::exit(1);
+}
+
+#[cfg(target_os = "android")]
+fn uninstall_service() {
+    eprintln!("Error: Service management is not supported on Android.");
+    std::process::exit(1);
+}
+
+#[cfg(target_os = "android")]
+fn start_service() {
+    eprintln!("Error: Service management is not supported on Android.");
+    eprintln!("Run 'raksha-agent run' to start the agent in foreground mode.");
+    std::process::exit(1);
+}
+
+#[cfg(target_os = "android")]
+fn stop_service() {
+    eprintln!("Error: Service management is not supported on Android.");
+    std::process::exit(1);
+}

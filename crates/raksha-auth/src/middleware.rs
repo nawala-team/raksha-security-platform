@@ -7,7 +7,7 @@ use axum::{
 };
 use raksha_core::error::AppError;
 
-use crate::{Claims, SessionManager, TokenService};
+use crate::{SessionManager, TokenService};
 
 /// Maximum Authorization header length (prevents memory abuse)
 const MAX_AUTH_HEADER_LEN: usize = 4096;

@@ -56,6 +56,8 @@ pub async fn audit_middleware(
 
     // Record audit entry asynchronously (don't block response)
     let store = audit_store.clone();
+    let method_clone = method.clone();
+    let path_clone = path.clone();
     tokio::spawn(async move {
         if let Err(e) = store
             .create_entry(
@@ -65,8 +67,8 @@ pub async fn audit_middleware(
                 None,
                 ip_address.clone(),
                 user_agent.clone(),
-                method.clone(),
-                path.clone(),
+                method_clone,
+                path_clone,
                 status,
                 duration.as_millis() as u64,
                 None,

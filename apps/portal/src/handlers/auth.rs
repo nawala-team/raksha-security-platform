@@ -138,7 +138,7 @@ async fn register(
         payload.email,
         payload.name,
         password_hash,
-        role as UserRole,
+        role.clone() as UserRole,
     )
     .execute(&state.db)
     .await?;
