@@ -6,7 +6,7 @@ export function StepDatabase({
   dbConfig,
   setDbConfig,
 }: {
-  dbConfig: { host: string; port: string; name: string; username: string; password: string };
+  dbConfig: { host: string; port: string; name: string; username: string; password: string; type: string };
   setDbConfig: (config: typeof dbConfig) => void;
 }) {
   return (

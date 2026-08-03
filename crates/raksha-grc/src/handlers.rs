@@ -50,23 +50,23 @@ pub fn router(state: GrcState) -> Router {
     Router::new()
         // Risk endpoints
         .route("/risks", get(list_risks).post(create_risk))
-        .route("/risks/{id}", get(get_risk).put(update_risk))
-        .route("/risks/{id}/accept", post(accept_risk))
+        .route("/risks/:id", get(get_risk).put(update_risk))
+        .route("/risks/:id/accept", post(accept_risk))
         // Policy endpoints
         .route("/policies", get(list_policies).post(create_policy))
-        .route("/policies/{id}", get(get_policy))
-        .route("/policies/{id}/activate", post(activate_policy))
-        .route("/policies/{id}/archive", post(archive_policy))
-        .route("/policies/{id}/acknowledge", post(acknowledge_policy))
+        .route("/policies/:id", get(get_policy))
+        .route("/policies/:id/activate", post(activate_policy))
+        .route("/policies/:id/archive", post(archive_policy))
+        .route("/policies/:id/acknowledge", post(acknowledge_policy))
         // Control endpoints
         .route("/controls", get(list_controls).post(create_control))
-        .route("/controls/{id}", get(get_control).put(update_control))
+        .route("/controls/:id", get(get_control).put(update_control))
         .route("/controls/mappings", post(add_control_mapping))
         // Dashboard & analytics
         .route("/dashboard", get(get_dashboard))
         .route("/heatmap", get(get_heatmap))
-        .route("/coverage/{framework}", get(get_coverage))
-        .route("/gaps/{framework}", get(get_gap_analysis))
+        .route("/coverage/:framework", get(get_coverage))
+        .route("/gaps/:framework", get(get_gap_analysis))
         .with_state(state)
 }
 

@@ -20,9 +20,9 @@ use crate::state::AppState;
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/", post(create_tenant).get(list_tenants))
-        .route("/{id}", get(get_tenant).put(update_tenant))
-        .route("/{id}/suspend", post(suspend_tenant))
-        .route("/{id}/stats", get(get_tenant_stats))
+        .route("/:id", get(get_tenant).put(update_tenant))
+        .route("/:id/suspend", post(suspend_tenant))
+        .route("/:id/stats", get(get_tenant_stats))
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]

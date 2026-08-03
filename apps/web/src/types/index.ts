@@ -19,7 +19,14 @@ export interface User {
   createdAt: string;
 }
 
-export type UserRole = "admin" | "analyst" | "operator" | "viewer";
+// Mirrors `UserRole` in crates/raksha-core/src/models.rs, which serialises to
+// snake_case. `super_admin` must be present or `hasRole` denies platform admins.
+export type UserRole =
+  | "super_admin"
+  | "admin"
+  | "analyst"
+  | "operator"
+  | "viewer";
 
 export interface Alert {
   id: string;

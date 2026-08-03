@@ -6,6 +6,16 @@ use sysinfo::System;
 // Note: For these tests to compile, the collector module must be public in lib.rs
 // or these tests use integration-style access via the binary's module structure.
 
+/// Whether the kernel lets this process read per-CPU statistics.
+///
+/// `sysinfo` populates its CPU list from `/proc/stat`. Some hardened
+/// environments (notably Android/Termux, where SELinux denies access to
+/// `/proc/stat`) return an empty CPU list even though the platform is healthy.
+/// Treat that as "not measurable here" rather than a collector failure.
+fn cpu_stats_readable() -> bool {
+    std::fs::read_to_string("/proc/stat").is_ok()
+}
+
 /// Test that server metrics collection returns valid data.
 #[test]
 fn test_server_metrics_collection() {
@@ -14,21 +24,25 @@ fn test_server_metrics_collection() {
     std::thread::sleep(std::time::Duration::from_millis(200));
     sys.refresh_all();
 
-    let cpu_count = sys.cpus().len();
-    assert!(cpu_count > 0, "Should detect at least one CPU");
+    if cpu_stats_readable() {
+        let cpu_count = sys.cpus().len();
+        assert!(cpu_count > 0, "Should detect at least one CPU");
+
+        let cpu_usage = sys.global_cpu_usage();
+        assert!(
+            (0.0..=100.0).contains(&cpu_usage),
+            "CPU usage should be 0-100%, got {}",
+            cpu_usage
+        );
+    } else {
+        eprintln!("skipping CPU assertions: /proc/stat is not readable here");
+    }
 
     let total_memory = sys.total_memory();
     assert!(total_memory > 0, "Total memory should be > 0");
 
     let used_memory = sys.used_memory();
     assert!(used_memory <= total_memory, "Used memory should not exceed total");
-
-    let cpu_usage = sys.global_cpu_usage();
-    assert!(
-        (0.0..=100.0).contains(&cpu_usage),
-        "CPU usage should be 0-100%, got {}",
-        cpu_usage
-    );
 }
 
 /// Test memory usage percentage calculation.

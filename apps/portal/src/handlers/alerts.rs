@@ -16,8 +16,8 @@ use crate::state::AppState;
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/", get(list_alerts).post(create_alert))
-        .route("/{id}", get(get_alert))
-        .route("/{id}/status", patch(update_alert_status))
+        .route("/:id", get(get_alert))
+        .route("/:id/status", patch(update_alert_status))
 }
 
 async fn list_alerts(

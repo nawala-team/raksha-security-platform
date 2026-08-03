@@ -16,7 +16,7 @@ use crate::state::AppState;
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/scores", get(list_compliance_scores))
-        .route("/scores/{id}", get(get_compliance_score))
+        .route("/scores/:id", get(get_compliance_score))
         .route("/standards", get(list_standards))
         .route("/controls", get(list_controls))
 }

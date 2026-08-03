@@ -27,7 +27,7 @@ import {
   Eye,
   HardDrive,
   Building2,
-  Honeycomb,
+  Hexagon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -49,7 +49,7 @@ const navigation = [
   { name: "Compliance", href: "/dashboard/compliance", icon: ClipboardCheck },
   { name: "GRC", href: "/dashboard/grc", icon: ShieldCheck },
   { name: "Dark Web", href: "/dashboard/darkweb", icon: Eye },
-  { name: "Honeypots", href: "/dashboard/honeypots", icon: Honeycomb },
+  { name: "Honeypots", href: "/dashboard/honeypots", icon: Hexagon },
   { name: "Backups", href: "/dashboard/backups", icon: HardDrive },
   { name: "Audit Trail", href: "/dashboard/audit", icon: ScrollText },
   { name: "Users", href: "/dashboard/users", icon: Users },

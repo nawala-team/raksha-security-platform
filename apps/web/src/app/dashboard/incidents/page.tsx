@@ -8,10 +8,13 @@ import {
   CheckCircle2,
   AlertTriangle,
   Shield,
+  ShieldAlert,
+  Flame,
   ChevronDown,
   ChevronRight,
   X,
-  MessageSquare,
+  ListChecks,
+  Info,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,221 +30,160 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { DataState } from "@/components/ui/data-state";
+import { useApiData, useApiList } from "@/hooks/use-api-data";
+import { api } from "@/lib/api";
+import { formatNumber, relativeTime } from "@/lib/utils";
 
-type IncidentSeverity = "critical" | "high" | "medium" | "low";
-type IncidentStatus = "open" | "investigating" | "contained" | "resolved";
-
-interface TimelineEvent {
+/** Mirrors the portal's `IncidentResponse`. */
+interface IncidentRecord {
   id: string;
-  timestamp: string;
-  action: string;
-  actor: string;
-}
-
-interface PlaybookStep {
-  id: string;
-  label: string;
-  completed: boolean;
-}
-
-interface Incident {
-  id: string;
+  incident_number: string;
   title: string;
-  severity: IncidentSeverity;
-  status: IncidentStatus;
-  assignedTo: string;
-  createdAt: string;
-  updatedAt: string;
-  description: string;
-  linkedAlerts: string[];
-  timeline: TimelineEvent[];
-  playbook: PlaybookStep[];
-  notes: string[];
+  description: string | null;
+  severity: string;
+  status: string;
+  priority: string;
+  category: string | null;
+  classification: string | null;
+  commander_id: string | null;
+  assigned_team: string | null;
+  affected_systems: unknown;
+  affected_users_count: number | null;
+  impact_scope: string | null;
+  mitre_tactics: unknown;
+  mitre_techniques: unknown;
+  attack_vector: string | null;
+  root_cause: string | null;
+  sla_breached: boolean;
+  first_detected_at: string | null;
+  first_response_at: string | null;
+  contained_at: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
-const mockIncidents: Incident[] = [
-  {
-    id: "INC-001",
-    title: "Ransomware detected on workstation WS-042",
-    severity: "critical",
-    status: "investigating",
-    assignedTo: "Sarah Chen",
-    createdAt: "2024-01-15T08:30:00Z",
-    updatedAt: "2024-01-15T10:45:00Z",
-    description: "Ransomware binary executed on WS-042, lateral movement detected.",
-    linkedAlerts: ["ALT-101", "ALT-102"],
-    timeline: [
-      { id: "t1", timestamp: "2024-01-15T08:30:00Z", action: "Incident created from alert ALT-101", actor: "System" },
-      { id: "t2", timestamp: "2024-01-15T08:35:00Z", action: "Assigned to Sarah Chen", actor: "Admin" },
-      { id: "t3", timestamp: "2024-01-15T09:00:00Z", action: "Status changed to Investigating", actor: "Sarah Chen" },
-      { id: "t4", timestamp: "2024-01-15T10:45:00Z", action: "Isolated host WS-042", actor: "Sarah Chen" },
-    ],
-    playbook: [
-      { id: "p1", label: "Identify affected systems", completed: true },
-      { id: "p2", label: "Isolate compromised hosts", completed: true },
-      { id: "p3", label: "Collect forensic evidence", completed: false },
-      { id: "p4", label: "Eradicate threat", completed: false },
-      { id: "p5", label: "Restore from clean backup", completed: false },
-    ],
-    notes: ["Malware hash matches Conti variant", "User clicked phishing link at 08:15"],
-  },
-  {
-    id: "INC-002",
-    title: "Unauthorized access to production database",
-    severity: "high",
-    status: "open",
-    assignedTo: "Unassigned",
-    createdAt: "2024-01-15T09:15:00Z",
-    updatedAt: "2024-01-15T09:15:00Z",
-    description: "Suspicious queries on prod-db-01 from unknown service account.",
-    linkedAlerts: ["ALT-110"],
-    timeline: [
-      { id: "t1", timestamp: "2024-01-15T09:15:00Z", action: "Incident created from alert ALT-110", actor: "System" },
-    ],
-    playbook: [
-      { id: "p1", label: "Identify the service account origin", completed: false },
-      { id: "p2", label: "Revoke compromised credentials", completed: false },
-      { id: "p3", label: "Audit accessed data", completed: false },
-    ],
-    notes: [],
-  },
-  {
-    id: "INC-003",
-    title: "DDoS attack on public API gateway",
-    severity: "high",
-    status: "contained",
-    assignedTo: "Mike Torres",
-    createdAt: "2024-01-14T22:00:00Z",
-    updatedAt: "2024-01-15T06:30:00Z",
-    description: "Volumetric DDoS targeting api.example.com, peaking at 45Gbps.",
-    linkedAlerts: ["ALT-098", "ALT-099"],
-    timeline: [
-      { id: "t1", timestamp: "2024-01-14T22:00:00Z", action: "Incident created", actor: "System" },
-      { id: "t2", timestamp: "2024-01-14T22:10:00Z", action: "Assigned to Mike Torres", actor: "Admin" },
-      { id: "t3", timestamp: "2024-01-15T06:30:00Z", action: "Traffic normalized", actor: "Mike Torres" },
-    ],
-    playbook: [
-      { id: "p1", label: "Enable rate limiting", completed: true },
-      { id: "p2", label: "Activate DDoS mitigation", completed: true },
-      { id: "p3", label: "Block malicious IPs", completed: true },
-      { id: "p4", label: "Monitor for resurgence", completed: false },
-    ],
-    notes: ["Attack from botnet, mostly Eastern Europe IPs"],
-  },
-  {
-    id: "INC-004",
-    title: "Phishing campaign targeting finance team",
-    severity: "medium",
-    status: "resolved",
-    assignedTo: "Sarah Chen",
-    createdAt: "2024-01-13T14:00:00Z",
-    updatedAt: "2024-01-14T11:00:00Z",
-    description: "Coordinated phishing emails sent to 15 finance team members.",
-    linkedAlerts: ["ALT-090"],
-    timeline: [
-      { id: "t1", timestamp: "2024-01-13T14:00:00Z", action: "Incident created", actor: "System" },
-      { id: "t2", timestamp: "2024-01-14T11:00:00Z", action: "All accounts secured", actor: "Sarah Chen" },
-    ],
-    playbook: [
-      { id: "p1", label: "Block phishing domain", completed: true },
-      { id: "p2", label: "Reset affected passwords", completed: true },
-      { id: "p3", label: "Security awareness reminder", completed: true },
-    ],
-    notes: ["Domain registered 24h before campaign"],
-  },
-  {
-    id: "INC-005",
-    title: "Exposed S3 bucket with customer PII",
-    severity: "critical",
-    status: "open",
-    assignedTo: "Unassigned",
-    createdAt: "2024-01-15T11:00:00Z",
-    updatedAt: "2024-01-15T11:00:00Z",
-    description: "Public S3 bucket with unencrypted customer records discovered.",
-    linkedAlerts: ["ALT-115"],
-    timeline: [
-      { id: "t1", timestamp: "2024-01-15T11:00:00Z", action: "Incident created from scan", actor: "System" },
-    ],
-    playbook: [
-      { id: "p1", label: "Restrict bucket permissions", completed: false },
-      { id: "p2", label: "Audit access logs", completed: false },
-      { id: "p3", label: "Assess data exposure scope", completed: false },
-    ],
-    notes: [],
-  },
-];
+/** Mirrors the portal's `TimelineEntry`. */
+interface TimelineEntry {
+  id: string;
+  incident_id: string;
+  actor_id: string | null;
+  event_type: string;
+  title: string;
+  content: string | null;
+  is_automated: boolean;
+  occurred_at: string;
+}
 
-const teamMembers = ["Sarah Chen", "Mike Torres", "Alex Kim", "Jordan Lee", "Casey Nguyen"];
+/** Mirrors the portal's `IncidentTask`. */
+interface IncidentTask {
+  id: string;
+  incident_id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  assigned_to: string | null;
+  due_at: string | null;
+  completed_at: string | null;
+  completed_by: string | null;
+  created_at: string;
+}
 
-const statusConfig: Record<IncidentStatus, { label: string; color: string; icon: typeof Clock }> = {
-  open: { label: "Open", color: "bg-red-500/20 text-red-400 border-red-500/30", icon: AlertTriangle },
-  investigating: { label: "Investigating", color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30", icon: Search },
-  contained: { label: "Contained", color: "bg-blue-500/20 text-blue-400 border-blue-500/30", icon: Shield },
-  resolved: { label: "Resolved", color: "bg-green-500/20 text-green-400 border-green-500/30", icon: CheckCircle2 },
+/** Mirrors the portal's `IncidentSummary`. */
+interface IncidentSummary {
+  total: number;
+  open: number;
+  critical: number;
+  sla_breached: number;
+  unassigned: number;
+  closed_last_30d: number;
+  mttr_minutes: number | null;
+}
+
+const severityVariants: Record<string, "critical" | "high" | "medium" | "low"> = {
+  critical: "critical",
+  high: "high",
+  medium: "medium",
+  low: "low",
 };
 
+const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
+  open: { label: "Open", color: "bg-red-500/20 text-red-400 border-red-500/30", icon: AlertTriangle },
+  triage: { label: "Triage", color: "bg-orange-500/20 text-orange-400 border-orange-500/30", icon: Search },
+  investigating: { label: "Investigating", color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30", icon: Search },
+  contained: { label: "Contained", color: "bg-blue-500/20 text-blue-400 border-blue-500/30", icon: Shield },
+  eradicated: { label: "Eradicated", color: "bg-blue-500/20 text-blue-400 border-blue-500/30", icon: Shield },
+  resolved: { label: "Resolved", color: "bg-green-500/20 text-green-400 border-green-500/30", icon: CheckCircle2 },
+  closed: { label: "Closed", color: "bg-green-500/20 text-green-400 border-green-500/30", icon: CheckCircle2 },
+};
+
+/** Statuses come from the database, so unknown values still need a presentation. */
+function statusFor(status: string) {
+  return (
+    statusConfig[status] ?? {
+      label: status.replace(/_/g, " "),
+      color: "bg-muted text-muted-foreground border-border",
+      icon: Clock,
+    }
+  );
+}
+
+/** MTTR arrives in minutes; hours read better past the hour mark. */
+function formatMinutes(minutes: number | null | undefined): string {
+  if (minutes === null || minutes === undefined || Number.isNaN(minutes)) return "—";
+  if (minutes < 60) return `${Math.round(minutes)}m`;
+  return `${(minutes / 60).toFixed(1)}h`;
+}
+
+/** A task counts as done once the backend records a completion. */
+function isTaskDone(task: IncidentTask): boolean {
+  return task.completed_at !== null || task.status === "completed" || task.status === "done";
+}
+
 export default function IncidentsPage() {
-  const [statusFilter, setStatusFilter] = useState<IncidentStatus | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [incidents, setIncidents] = useState(mockIncidents);
   const [newTitle, setNewTitle] = useState("");
-  const [newSeverity, setNewSeverity] = useState<IncidentSeverity>("medium");
+  const [newSeverity, setNewSeverity] = useState<string>("medium");
   const [newDescription, setNewDescription] = useState("");
 
-  const filtered = incidents.filter((incident) => {
+  const summary = useApiData<IncidentSummary>(() => api.incidents.summary());
+  const incidents = useApiList<IncidentRecord>(() => api.incidents.list());
+
+  // Detail data is only fetched for the row the analyst opened; `expandedRow`
+  // goes through `deps` so the hook refetches when the selection changes, and
+  // resolves empty rather than hitting the API when nothing is selected.
+  const timeline = useApiData<TimelineEntry[]>(
+    () => (expandedRow ? api.incidents.timeline(expandedRow) : Promise.resolve([])),
+    [expandedRow]
+  );
+  const tasks = useApiData<IncidentTask[]>(
+    () => (expandedRow ? api.incidents.tasks(expandedRow) : Promise.resolve([])),
+    [expandedRow]
+  );
+
+  const filtered = incidents.items.filter((incident) => {
     if (statusFilter !== "all" && incident.status !== statusFilter) return false;
-    if (searchQuery && !incident.title.toLowerCase().includes(searchQuery.toLowerCase()) && !incident.id.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (
+      searchQuery &&
+      !incident.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
+      !incident.incident_number.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+      return false;
     return true;
   });
 
-  const stats = {
-    open: incidents.filter((i) => i.status === "open").length,
-    investigating: incidents.filter((i) => i.status === "investigating").length,
-    contained: incidents.filter((i) => i.status === "contained").length,
-    resolved: incidents.filter((i) => i.status === "resolved").length,
-    mttr: "4.2h",
-  };
-
-  function handleCreateIncident() {
-    if (!newTitle.trim()) return;
-    const newIncident: Incident = {
-      id: `INC-${String(incidents.length + 1).padStart(3, "0")}`,
-      title: newTitle,
-      severity: newSeverity,
-      status: "open",
-      assignedTo: "Unassigned",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      description: newDescription,
-      linkedAlerts: [],
-      timeline: [{ id: "t1", timestamp: new Date().toISOString(), action: "Incident created manually", actor: "Current User" }],
-      playbook: [],
-      notes: [],
-    };
-    setIncidents([newIncident, ...incidents]);
-    setNewTitle("");
-    setNewSeverity("medium");
-    setNewDescription("");
-    setShowCreateModal(false);
-  }
-
-  function handlePlaybookToggle(incidentId: string, stepId: string) {
-    setIncidents((prev) =>
-      prev.map((inc) =>
-        inc.id === incidentId
-          ? { ...inc, playbook: inc.playbook.map((s) => (s.id === stepId ? { ...s, completed: !s.completed } : s)) }
-          : inc
-      )
-    );
-  }
-
-  function handleAssign(incidentId: string, assignee: string) {
-    setIncidents((prev) =>
-      prev.map((inc) => (inc.id === incidentId ? { ...inc, assignedTo: assignee, updatedAt: new Date().toISOString() } : inc))
-    );
-  }
+  const stats = [
+    { label: "Open", value: formatNumber(summary.data?.open), icon: AlertTriangle, wrapper: "bg-red-500/10", color: "text-red-400" },
+    { label: "Critical", value: formatNumber(summary.data?.critical), icon: Flame, wrapper: "bg-orange-500/10", color: "text-orange-400" },
+    { label: "SLA Breached", value: formatNumber(summary.data?.sla_breached), icon: ShieldAlert, wrapper: "bg-yellow-500/10", color: "text-yellow-400" },
+    { label: "Closed (30d)", value: formatNumber(summary.data?.closed_last_30d), icon: CheckCircle2, wrapper: "bg-green-500/10", color: "text-green-400" },
+    { label: "MTTR", value: formatMinutes(summary.data?.mttr_minutes), icon: Clock, wrapper: "bg-purple-500/10", color: "text-purple-400" },
+  ];
 
   return (
     <div className="space-y-6">
@@ -252,60 +194,42 @@ export default function IncidentsPage() {
           <p className="text-muted-foreground">Manage and track security incidents</p>
         </div>
         <Button onClick={() => setShowCreateModal(true)}>
-          <Plus className="mr-2 h-4 w-4" />
+          <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
           Create Incident
         </Button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Card className="border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-red-500/10 p-2"><AlertTriangle className="h-5 w-5 text-red-400" /></div>
-              <div><p className="text-2xl font-bold text-foreground">{stats.open}</p><p className="text-xs text-muted-foreground">Open</p></div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-yellow-500/10 p-2"><Search className="h-5 w-5 text-yellow-400" /></div>
-              <div><p className="text-2xl font-bold text-foreground">{stats.investigating}</p><p className="text-xs text-muted-foreground">Investigating</p></div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-blue-500/10 p-2"><Shield className="h-5 w-5 text-blue-400" /></div>
-              <div><p className="text-2xl font-bold text-foreground">{stats.contained}</p><p className="text-xs text-muted-foreground">Contained</p></div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-green-500/10 p-2"><CheckCircle2 className="h-5 w-5 text-green-400" /></div>
-              <div><p className="text-2xl font-bold text-foreground">{stats.resolved}</p><p className="text-xs text-muted-foreground">Resolved (week)</p></div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-purple-500/10 p-2"><Clock className="h-5 w-5 text-purple-400" /></div>
-              <div><p className="text-2xl font-bold text-foreground">{stats.mttr}</p><p className="text-xs text-muted-foreground">MTTR</p></div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <DataState
+        loading={summary.loading}
+        error={summary.error}
+        onRetry={summary.refetch}
+        loadingLabel="Loading incident summary"
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {stats.map((stat) => (
+            <Card key={stat.label} className="border-border">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className={`rounded-lg p-2 ${stat.wrapper}`}>
+                    <stat.icon className={`h-5 w-5 ${stat.color}`} aria-hidden="true" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </DataState>
 
       {/* Filter Tabs + Search */}
       <Card className="border-border">
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-4">
-            <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as IncidentStatus | "all")} className="flex-1">
+            <Tabs value={statusFilter} onValueChange={setStatusFilter} className="flex-1">
               <TabsList>
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="open">Open</TabsTrigger>
@@ -315,101 +239,167 @@ export default function IncidentsPage() {
               </TabsList>
             </Tabs>
             <div className="relative min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <Input placeholder="Search incidents..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Incident Table */}
-      <div className="space-y-2">
-        {filtered.length === 0 && (
-          <Card className="border-border"><CardContent className="p-8 text-center"><p className="text-muted-foreground">No incidents match the current filter.</p></CardContent></Card>
-        )}
-        {filtered.map((incident) => {
-          const isExpanded = expandedRow === incident.id;
-          const statusCfg = statusConfig[incident.status];
-          const StatusIcon = statusCfg.icon;
-          return (
-            <Card key={incident.id} className="border-border hover:border-primary/30 transition-colors">
-              <CardContent className="p-0">
-                <button
-                  className="flex w-full items-center gap-4 p-4 text-left"
-                  onClick={() => setExpandedRow(isExpanded ? null : incident.id)}
-                  aria-expanded={isExpanded}
-                  aria-label={`Expand incident ${incident.id}`}
-                >
-                  {isExpanded ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
-                  <span className="w-20 shrink-0 text-xs font-mono text-muted-foreground">{incident.id}</span>
-                  <span className="flex-1 truncate text-sm font-medium text-foreground">{incident.title}</span>
-                  <Badge variant={incident.severity}>{incident.severity}</Badge>
-                  <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusCfg.color}`}>
-                    <StatusIcon className="h-3 w-3" />
-                    {statusCfg.label}
-                  </span>
-                  <span className="hidden w-28 shrink-0 text-xs text-muted-foreground lg:block">{incident.assignedTo}</span>
-                  <span className="hidden w-32 shrink-0 text-xs text-muted-foreground md:block">{new Date(incident.createdAt).toLocaleDateString()}</span>
-                  <span className="hidden w-32 shrink-0 text-xs text-muted-foreground xl:block">{new Date(incident.updatedAt).toLocaleString()}</span>
-                </button>
+      {/* Incident List */}
+      <DataState
+        loading={incidents.loading}
+        error={incidents.error}
+        isEmpty={incidents.items.length === 0}
+        onRetry={incidents.refetch}
+        loadingLabel="Loading incidents"
+        emptyTitle="No incidents yet"
+        emptyDescription="Incidents raised from alerts or opened manually appear here."
+      >
+        <div className="space-y-2">
+          {filtered.length === 0 && (
+            <Card className="border-border"><CardContent className="p-8 text-center"><p className="text-muted-foreground">No incidents match the current filter.</p></CardContent></Card>
+          )}
+          {filtered.map((incident) => {
+            const isExpanded = expandedRow === incident.id;
+            const statusCfg = statusFor(incident.status);
+            const StatusIcon = statusCfg.icon;
+            const timelineEntries = timeline.data ?? [];
+            const taskList = tasks.data ?? [];
+            return (
+              <Card key={incident.id} className="border-border hover:border-primary/30 transition-colors">
+                <CardContent className="p-0">
+                  <button
+                    className="flex w-full items-center gap-4 p-4 text-left"
+                    onClick={() => setExpandedRow(isExpanded ? null : incident.id)}
+                    aria-expanded={isExpanded}
+                    aria-label={`Expand incident ${incident.incident_number}`}
+                  >
+                    {isExpanded ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+                    <span className="w-20 shrink-0 text-xs font-mono text-muted-foreground">{incident.incident_number}</span>
+                    <span className="flex-1 truncate text-sm font-medium text-foreground">{incident.title}</span>
+                    <Badge variant={severityVariants[incident.severity] ?? "outline"}>{incident.severity}</Badge>
+                    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusCfg.color}`}>
+                      <StatusIcon className="h-3 w-3" aria-hidden="true" />
+                      {statusCfg.label}
+                    </span>
+                    <span className="hidden w-28 shrink-0 truncate text-xs text-muted-foreground lg:block">{incident.assigned_team ?? "Unassigned"}</span>
+                    <span className="hidden w-32 shrink-0 text-xs text-muted-foreground md:block">{new Date(incident.created_at).toLocaleDateString()}</span>
+                    <span className="hidden w-32 shrink-0 text-xs text-muted-foreground xl:block">{relativeTime(incident.updated_at)}</span>
+                  </button>
 
-                {isExpanded && (
-                  <div className="border-t border-border bg-muted/30 p-4 space-y-4">
-                    <p className="text-sm text-muted-foreground">{incident.description}</p>
-                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                      {/* Timeline */}
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-semibold text-foreground flex items-center gap-2"><Clock className="h-4 w-4" /> Timeline</h4>
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
-                          {incident.timeline.map((event) => (
-                            <div key={event.id} className="flex gap-2 text-xs">
-                              <span className="shrink-0 text-muted-foreground w-14">{new Date(event.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                              <span className="text-foreground">{event.action}</span>
-                              <span className="ml-auto text-muted-foreground">{event.actor}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      {/* Playbook */}
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-semibold text-foreground flex items-center gap-2"><CheckCircle2 className="h-4 w-4" /> Playbook</h4>
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
-                          {incident.playbook.length === 0 && <p className="text-xs text-muted-foreground">No playbook assigned</p>}
-                          {incident.playbook.map((step) => (
-                            <div key={step.id} className="flex items-center gap-2">
-                              <Checkbox id={`${incident.id}-${step.id}`} checked={step.completed} onCheckedChange={() => handlePlaybookToggle(incident.id, step.id)} />
-                              <label htmlFor={`${incident.id}-${step.id}`} className={`text-xs ${step.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>{step.label}</label>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      {/* Notes + Assign */}
-                      <div className="space-y-3">
+
+                  {isExpanded && (
+                    <div className="border-t border-border bg-muted/30 p-4 space-y-4">
+                      <p className="text-sm text-muted-foreground">{incident.description ?? "No description recorded."}</p>
+                      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                        {/* Timeline */}
                         <div className="space-y-2">
-                          <h4 className="text-sm font-semibold text-foreground flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Notes</h4>
-                          <div className="space-y-1 max-h-24 overflow-y-auto">
-                            {incident.notes.length === 0 && <p className="text-xs text-muted-foreground">No notes yet</p>}
-                            {incident.notes.map((note, idx) => (<p key={idx} className="text-xs text-muted-foreground">&bull; {note}</p>))}
-                          </div>
+                          <h4 className="text-sm font-semibold text-foreground flex items-center gap-2"><Clock className="h-4 w-4" aria-hidden="true" /> Timeline</h4>
+                          <DataState
+                            loading={timeline.loading}
+                            error={timeline.error}
+                            isEmpty={timelineEntries.length === 0}
+                            onRetry={timeline.refetch}
+                            loadingLabel="Loading timeline"
+                            emptyTitle="No timeline entries"
+                          >
+                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                              {timelineEntries.map((entry) => (
+                                <div key={entry.id} className="flex gap-2 text-xs">
+                                  <span className="shrink-0 text-muted-foreground w-14">{new Date(entry.occurred_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                                  <span className="text-foreground">{entry.title}</span>
+                                  <span className="ml-auto text-muted-foreground">{entry.is_automated ? "System" : entry.event_type.replace(/_/g, " ")}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </DataState>
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Assign To</Label>
-                          <Select value={incident.assignedTo} onValueChange={(v) => handleAssign(incident.id, v)}>
-                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select assignee" /></SelectTrigger>
-                            <SelectContent>
-                              {teamMembers.map((member) => (<SelectItem key={member} value={member}>{member}</SelectItem>))}
-                            </SelectContent>
-                          </Select>
+                        {/* Tasks */}
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-semibold text-foreground flex items-center gap-2"><ListChecks className="h-4 w-4" aria-hidden="true" /> Tasks</h4>
+                          <DataState
+                            loading={tasks.loading}
+                            error={tasks.error}
+                            isEmpty={taskList.length === 0}
+                            onRetry={tasks.refetch}
+                            loadingLabel="Loading tasks"
+                            emptyTitle="No tasks assigned"
+                          >
+                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                              {taskList.map((task) => (
+                                <div key={task.id} className="flex items-center gap-2">
+                                  <Checkbox id={`${incident.id}-${task.id}`} checked={isTaskDone(task)} disabled />
+                                  <label htmlFor={`${incident.id}-${task.id}`} className={`text-xs ${isTaskDone(task) ? "line-through text-muted-foreground" : "text-foreground"}`}>{task.title}</label>
+                                  <Badge variant="outline" className="ml-auto text-xs">{task.priority}</Badge>
+                                </div>
+                              ))}
+                            </div>
+                          </DataState>
+                        </div>
+
+                        {/* Incident details */}
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-semibold text-foreground flex items-center gap-2"><Info className="h-4 w-4" aria-hidden="true" /> Details</h4>
+                          <dl className="space-y-1 text-xs">
+                            <div className="flex justify-between gap-2">
+                              <dt className="text-muted-foreground">Priority</dt>
+                              <dd className="capitalize text-foreground">{incident.priority}</dd>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <dt className="text-muted-foreground">Category</dt>
+                              <dd className="text-foreground">{incident.category ?? "—"}</dd>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <dt className="text-muted-foreground">Attack vector</dt>
+                              <dd className="text-foreground">{incident.attack_vector ?? "—"}</dd>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <dt className="text-muted-foreground">Impact scope</dt>
+                              <dd className="text-foreground">{incident.impact_scope ?? "—"}</dd>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <dt className="text-muted-foreground">Affected users</dt>
+                              <dd className="text-foreground">{formatNumber(incident.affected_users_count)}</dd>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <dt className="text-muted-foreground">First detected</dt>
+                              <dd className="text-foreground">{relativeTime(incident.first_detected_at)}</dd>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <dt className="text-muted-foreground">First response</dt>
+                              <dd className="text-foreground">{relativeTime(incident.first_response_at)}</dd>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <dt className="text-muted-foreground">Contained</dt>
+                              <dd className="text-foreground">{relativeTime(incident.contained_at)}</dd>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <dt className="text-muted-foreground">SLA</dt>
+                              <dd>
+                                {incident.sla_breached
+                                  ? <Badge variant="destructive" className="text-xs">breached</Badge>
+                                  : <Badge variant="low" className="text-xs">within target</Badge>}
+                              </dd>
+                            </div>
+                          </dl>
+                          {incident.root_cause && (
+                            <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">Root cause:</span> {incident.root_cause}</p>
+                          )}
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+          <p className="text-xs text-muted-foreground">
+            Showing {formatNumber(filtered.length)} of {formatNumber(incidents.total)} incidents
+          </p>
+        </div>
+      </DataState>
+
 
       {/* Create Incident Modal */}
       {showCreateModal && (
@@ -417,7 +407,7 @@ export default function IncidentsPage() {
           <div className="w-full max-w-lg rounded-lg border border-border bg-card p-6 shadow-xl">
             <div className="flex items-center justify-between mb-4">
               <h3 id="create-incident-title" className="text-lg font-semibold text-foreground">Create Incident</h3>
-              <Button variant="ghost" size="icon" onClick={() => setShowCreateModal(false)} aria-label="Close modal"><X className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => setShowCreateModal(false)} aria-label="Close modal"><X className="h-4 w-4" aria-hidden="true" /></Button>
             </div>
             <div className="space-y-4">
               <div className="space-y-1">
@@ -426,7 +416,7 @@ export default function IncidentsPage() {
               </div>
               <div className="space-y-1">
                 <Label htmlFor="incident-severity">Severity</Label>
-                <Select value={newSeverity} onValueChange={(v) => setNewSeverity(v as IncidentSeverity)}>
+                <Select value={newSeverity} onValueChange={setNewSeverity}>
                   <SelectTrigger id="incident-severity"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="critical">Critical</SelectItem>
@@ -445,9 +435,13 @@ export default function IncidentsPage() {
                 <Input placeholder="e.g., ALT-101, ALT-102" disabled />
                 <p className="text-xs text-muted-foreground">Alert linking available after creation</p>
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>
-                <Button onClick={handleCreateIncident} disabled={!newTitle.trim()}>Create Incident</Button>
+              {/* The portal exposes read-only incident endpoints today, so creation stays disabled. */}
+              <div className="flex items-center justify-between gap-2 pt-2">
+                <p className="text-xs text-muted-foreground">Incident creation is not yet available from the portal API.</p>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>
+                  <Button disabled>Create Incident</Button>
+                </div>
               </div>
             </div>
           </div>
@@ -456,3 +450,4 @@ export default function IncidentsPage() {
     </div>
   );
 }
+

@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <a href="docs/INSTALLATION.md">Installation</a> •
+  <a href="INSTALLATION.md">Installation</a> •
   <a href="docs/ARCHITECTURE.md">Architecture</a> •
   <a href="docs/API.md">API Reference</a> •
   <a href="docs/AGENT-ENROLLMENT.md">Agent Setup</a> •
@@ -83,6 +83,32 @@ Part of the [Nawala Ecosystem](https://github.com/dansiapa/nawala-gateway-platfo
     <td align="center"><strong>🛡️ API Gateway</strong><br/><sub>WAF, rate limiting, bot detection, payload inspection</sub></td>
   </tr>
 </table>
+
+---
+
+## Feature Status
+
+> ⚠️ **Status jujur** — tidak semua fitur 100% selesai. Halaman dashboard tetap
+> menampilkan judul modul, namun seberapa dalam fungsinya bervariasi:
+
+| Module | Data dari API | Aksi (create/update/delete) |
+|--------|:---:|:---:|
+| Auth (login/register/logout/refresh) | ✅ | ✅ |
+| Users & Roles (list, add, edit, ganti role, delete) | ✅ | ✅ |
+| Alerts (list, ack, resolve) | ✅ | ✅ |
+| Tenants (list, create, rename, suspend) | ✅ | ✅ |
+| Compliance (list standards/controls/scores) | ✅ | ⏳ (read) |
+| FIM (list events, summary, export CSV) | ✅ | ⏳ (read + export) |
+| Servers, Network, Containers, Honeypots, Dark Web, Hunting, Backups, Documents, Incidents, GRC, Vulnerabilities | ✅ | ⏳ (read-only) |
+| Threat Intel (feeds) | ⏳ (hardcoded) | ⏳ |
+| Database Monitor | ⏳ (backend stub) | ⏳ |
+| Audit, Attack Surface, Settings | ⏳ | ⏳ |
+
+**Legenda:** ✅ = berfungsi penuh · ⏳ = data tampil / sebagian.
+
+Rencana pengembangan selanjutnya: melengkapi backend penyimpanan untuk
+Database Monitor & Threat Intel, lalu menghubungkan aksi tulis (create/update/
+delete) untuk modul yang saat ini read-only.
 
 ---
 
@@ -242,17 +268,41 @@ docker compose up -d
 
 ### Native Installation
 
+Full step-by-step instructions are in [`INSTALLATION.md`](INSTALLATION.md). Quick
+summary for bare-metal / Termux:
+
 ```bash
-# Prerequisites: Rust 1.75+, Node.js 20+, PostgreSQL 16+
+# Prerequisites: Rust 1.75+, Node.js 20+, PostgreSQL 13+, Redis 6+
 git clone https://github.com/dansiapa/raksha-security-platform.git
 cd raksha-security-platform
-npm install
-cargo build --release
-cargo run --bin raksha-migrate
-cargo run --bin raksha-server
+cp .env.example .env           # set DB URL, Redis URL, JWT secret
+
+# 1. Start PostgreSQL + Redis
+pg_ctl -D ~/postgresql-data -l ~/pg.log start
+redis-server --port 6379 --save ''
+psql -d postgres -c "CREATE ROLE raksha SUPERUSER LOGIN PASSWORD 'raksha_dev';"
+psql -d postgres -c "CREATE DATABASE raksha_platform OWNER raksha;"
+
+# 2. Apply migrations (creates all 53 tables + seed roles/tenant)
+for f in migrations/*.sql; do
+  psql "postgres://raksha:raksha_dev@localhost:5432/raksha_platform" -f "$f"
+done
+
+# 3. Build & run the portal API
+export DATABASE_URL=postgres://raksha:raksha_dev@localhost:5432/raksha_platform
+cargo build -p raksha-portal
+./target/debug/raksha-portal
+
+# 4. Build & run the web dashboard (separate terminal)
+cd apps/web
+PORTAL_API_URL=http://localhost:8080 npm install
+PORTAL_API_URL=http://localhost:8080 npm run build
+PORT=3000 PORTAL_API_URL=http://localhost:8080 npm run start
 ```
 
-The Setup Wizard will launch at `http://localhost:8080/setup` on first run.
+Dashboard runs at **http://localhost:3000** (it proxies `/api/*` to the portal).
+
+> Tip: use `./start-local.sh` to start / stop / check the whole stack in one command.
 
 ---
 

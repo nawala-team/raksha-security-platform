@@ -3,7 +3,8 @@ FROM node:20-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-COPY apps/web/package.json apps/web/package-lock.json* ./
+COPY package.json package-lock.json ./
+COPY apps/web/package.json apps/web/package.json
 RUN npm ci --ignore-scripts
 
 # ─── Stage 2: Builder ────────────────────────────────────────────────
@@ -11,12 +12,19 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY apps/web/ ./
+COPY package.json ./
+COPY apps/web/ ./apps/web/
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-RUN npm run build
+# `rewrites()` in next.config.js is resolved at build time and baked into
+# .next/routes-manifest.json, so the proxy target must be known here.
+# Setting PORTAL_API_URL only on the running container has no effect.
+ARG PORTAL_API_URL=http://portal:8080
+ENV PORTAL_API_URL=${PORTAL_API_URL}
+
+RUN npm --workspace @raksha/web run build
 
 # ─── Stage 3: Runner ─────────────────────────────────────────────────
 FROM node:20-alpine AS runner
@@ -28,9 +36,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 raksha && \
     adduser --system --uid 1001 raksha
 
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=raksha:raksha /app/.next/standalone ./
-COPY --from=builder --chown=raksha:raksha /app/.next/static ./.next/static
+COPY --from=builder /app/apps/web/public ./public
+COPY --from=builder --chown=raksha:raksha /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=raksha:raksha /app/apps/web/.next/static ./.next/static
 
 USER raksha
 

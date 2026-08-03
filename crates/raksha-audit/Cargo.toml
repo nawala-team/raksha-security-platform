@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 raksha-core = { workspace = true }
+raksha-auth = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }

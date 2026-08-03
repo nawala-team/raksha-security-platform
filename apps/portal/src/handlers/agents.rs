@@ -16,8 +16,8 @@ use crate::state::AppState;
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/", get(list_agents))
-        .route("/{id}", get(get_agent))
-        .route("/{id}/metrics", get(get_agent_metrics))
+        .route("/:id", get(get_agent))
+        .route("/:id/metrics", get(get_agent_metrics))
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]

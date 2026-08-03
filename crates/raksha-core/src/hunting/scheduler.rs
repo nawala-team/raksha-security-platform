@@ -93,19 +93,21 @@ impl QueryScheduler {
     /// Check if a query is due for execution based on its schedule.
     pub async fn is_due(&self, query_id: &Uuid) -> bool {
         let entries = self.entries.read().await;
-        if let Some(entry) = entries.get(query_id) {
-            if !entry.query.enabled {
-                return false;
-            }
-            if let Some(ref schedule) = entry.query.schedule {
-                if let Some(ref next_run) = schedule.next_run_at {
-                    return Utc::now() >= *next_run;
-                }
-                // If no next_run_at calculated, it's due
-                return true;
-            }
+        let Some(entry) = entries.get(query_id) else {
+            return false;
+        };
+        if !entry.query.enabled {
+            return false;
         }
-        false
+        let Some(ref schedule) = entry.query.schedule else {
+            return false;
+        };
+        let Some(ref next_run) = schedule.next_run_at else {
+            // If no next_run_at calculated, it's due
+            return true;
+        };
+        Utc::now() >= *next_run
+    }
 
     /// Execute a scheduled query and record the result.
     pub async fn execute_query(
@@ -172,7 +174,8 @@ impl QueryScheduler {
             let mut history = self.history.write().await;
             history.push(record.clone());
             if history.len() > self.max_history {
-                history.drain(0..history.len() - self.max_history);
+                let excess = history.len() - self.max_history;
+                history.drain(0..excess);
             }
         }
         {

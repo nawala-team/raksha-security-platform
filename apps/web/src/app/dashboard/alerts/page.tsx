@@ -1,34 +1,58 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Search, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { AlertTriangle, Search, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import type { Alert, ThreatLevel, AlertStatus } from "@/types";
+import { DataState } from "@/components/ui/data-state";
+import { useApiList } from "@/hooks/use-api-data";
+import { api } from "@/lib/api";
 
-const mockAlerts: Alert[] = [
-  { id: "1", title: "Brute force attack on SSH port 22", description: "Multiple failed login attempts from 192.168.1.105", severity: "critical", status: "active", source: "IDS", timestamp: "2024-01-15T10:30:00Z", tags: ["brute-force", "ssh"] },
-  { id: "2", title: "Unauthorized API access attempt", description: "Invalid bearer token on /api/admin", severity: "high", status: "active", source: "WAF", timestamp: "2024-01-15T10:25:00Z", tags: ["api", "auth"] },
-  { id: "3", title: "Suspicious outbound connection to C2", description: "Host web-03 connecting to known malicious IP", severity: "critical", status: "active", source: "Threat Intel", timestamp: "2024-01-15T10:20:00Z", tags: ["c2", "malware"] },
-  { id: "4", title: "SSL certificate expiring soon", description: "Certificate for api.example.com expires in 7 days", severity: "medium", status: "acknowledged", source: "Cert Monitor", timestamp: "2024-01-15T09:00:00Z", tags: ["ssl"] },
-  { id: "5", title: "Unusual database query pattern", description: "Potential SQL injection attempt detected", severity: "high", status: "active", source: "DB Monitor", timestamp: "2024-01-15T08:45:00Z", tags: ["sql-injection"] },
-  { id: "6", title: "New device on restricted network", description: "Unknown MAC on VLAN 10", severity: "medium", status: "acknowledged", source: "Scanner", timestamp: "2024-01-15T08:30:00Z", tags: ["network"] },
-  { id: "7", title: "Failed compliance check - PCI-DSS", description: "Weak password policy", severity: "low", status: "resolved", source: "Compliance", timestamp: "2024-01-15T07:00:00Z", tags: ["pci-dss"] },
-];
+type ThreatLevel = "critical" | "high" | "medium" | "low" | "info";
+type AlertStatus = "active" | "acknowledged" | "resolved" | "false_positive";
+
+interface AlertRow {
+  id: string;
+  title: string;
+  description: string;
+  severity: ThreatLevel;
+  status: AlertStatus;
+  source: string;
+  created_at: string;
+}
 
 const statusIcons = { active: AlertTriangle, acknowledged: Clock, resolved: CheckCircle2, false_positive: XCircle };
 
 export default function AlertsPage() {
+  const { items, loading, error, refetch } = useApiList<AlertRow>(() => api.alerts.list());
   const [searchQuery, setSearchQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState<ThreatLevel | "all">("all");
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  const filtered = mockAlerts.filter((alert) => {
-    if (severityFilter !== "all" && alert.severity !== severityFilter) return false;
-    if (searchQuery && !alert.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+  const filtered = items.filter((a) => {
+    if (severityFilter !== "all" && a.severity !== severityFilter) return false;
+    if (searchQuery && !a.title.toLowerCase().includes(searchQuery.toLowerCase()) && !a.source.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
+  const activeCount = items.filter((a) => a.status === "active").length;
+
+  const changeStatus = async (row: AlertRow, status: AlertStatus) => {
+    setBusyId(row.id);
+    try {
+      if (status === "acknowledged") await api.alerts.acknowledge(row.id);
+      else if (status === "resolved") await api.alerts.resolve(row.id);
+      refetch();
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Failed to update alert");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const statusColor = (s: AlertStatus) =>
+    s === "active" ? "text-red-400" : s === "acknowledged" ? "text-yellow-400" : "text-green-400";
 
   return (
     <div className="space-y-6">
@@ -37,7 +61,7 @@ export default function AlertsPage() {
           <h2 className="text-2xl font-bold text-foreground">Alerts</h2>
           <p className="text-muted-foreground">Monitor and manage security alerts</p>
         </div>
-        <Badge variant="destructive">{mockAlerts.filter((a) => a.status === "active").length} Active</Badge>
+        <Badge variant="destructive">{activeCount} Active</Badge>
       </div>
 
       <Card className="border-border">
@@ -56,33 +80,42 @@ export default function AlertsPage() {
         </CardContent>
       </Card>
 
-      <div className="space-y-3">
-        {filtered.map((alert) => {
-          const StatusIcon = statusIcons[alert.status];
-          const statusColor = alert.status === "active" ? "text-red-400" : alert.status === "acknowledged" ? "text-yellow-400" : "text-green-400";
-          return (
-            <Card key={alert.id} className="border-border hover:border-primary/30 transition-colors">
-              <CardContent className="p-4">
-                <div className="flex items-start gap-4">
-                  <StatusIcon className={`h-5 w-5 mt-0.5 shrink-0 ${statusColor}`} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-sm font-medium truncate">{alert.title}</h3>
-                      <Badge variant={alert.severity as "critical" | "high" | "medium" | "low"}>{alert.severity}</Badge>
+      <DataState loading={loading} error={error} isEmpty={filtered.length === 0} onRetry={refetch} loadingLabel="Loading alerts" emptyTitle="No alerts" emptyDescription="Alerts from agents and detectors will appear here.">
+        <div className="space-y-3">
+          {filtered.map((alert) => {
+            const StatusIcon = statusIcons[alert.status] ?? Clock;
+            return (
+              <Card key={alert.id} className="border-border hover:border-primary/30 transition-colors">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-4">
+                    <StatusIcon className={`h-5 w-5 mt-0.5 shrink-0 ${statusColor(alert.status)}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <h3 className="text-sm font-medium truncate">{alert.title}</h3>
+                        <Badge variant={alert.severity as "critical" | "high" | "medium" | "low"}>{alert.severity}</Badge>
+                        <span className="text-xs capitalize text-muted-foreground">{alert.status}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-2">{alert.description}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{alert.source}</span><span>•</span>
+                        <span>{new Date(alert.created_at).toLocaleString()}</span>
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground mb-2">{alert.description}</p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{alert.source}</span><span>•</span>
-                      <span>{new Date(alert.timestamp).toLocaleString()}</span>
+                    <div className="flex flex-col gap-2">
+                      {alert.status === "active" && (
+                        <Button variant="outline" size="sm" disabled={busyId === alert.id} onClick={() => changeStatus(alert, "acknowledged")}>Acknowledge</Button>
+                      )}
+                      {(alert.status === "active" || alert.status === "acknowledged") && (
+                        <Button variant="outline" size="sm" disabled={busyId === alert.id} onClick={() => changeStatus(alert, "resolved")} className="text-green-400 hover:text-green-300">Resolve</Button>
+                      )}
                     </div>
                   </div>
-                  <Button variant="outline" size="sm">View</Button>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </DataState>
     </div>
   );
 }

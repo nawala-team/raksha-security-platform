@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
+import { createElement, type ImgHTMLAttributes } from "react";
 
 // Automatic cleanup after each test
 afterEach(() => {
@@ -24,10 +25,7 @@ vi.mock("next/navigation", () => ({
 
 // Mock next/image
 vi.mock("next/image", () => ({
-  default: (props: Record<string, unknown>) => {
-    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
-    return <img {...props} />;
-  },
+  default: (props: ImgHTMLAttributes<HTMLImageElement>) => createElement("img", props),
 }));
 
 // Suppress console.error in tests for expected validation errors
@@ -49,6 +47,47 @@ beforeAll(() => {
 afterAll(() => {
   console.error = originalConsoleError;
 });
+
+// Provide localStorage/sessionStorage.
+// The jsdom build used here does not expose the Web Storage API, so `api.ts`
+// and any component that persists tokens need an in-memory stand-in.
+function createStorageMock(): Storage {
+  let store: Record<string, string> = {};
+
+  return {
+    getItem: (key: string) => (key in store ? store[key] : null),
+    setItem: (key: string, value: string) => {
+      store[key] = String(value);
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
+    key: (index: number) => Object.keys(store)[index] ?? null,
+    get length() {
+      return Object.keys(store).length;
+    },
+  } as Storage;
+}
+
+for (const name of ["localStorage", "sessionStorage"] as const) {
+  if (!window[name]) {
+    Object.defineProperty(window, name, {
+      writable: true,
+      configurable: true,
+      value: createStorageMock(),
+    });
+    // Keep the bare global in sync with `window`, since jsdom exposes them
+    // as the same object in a real browser environment.
+    Object.defineProperty(globalThis, name, {
+      writable: true,
+      configurable: true,
+      value: window[name],
+    });
+  }
+}
 
 // Mock window.matchMedia
 Object.defineProperty(window, "matchMedia", {

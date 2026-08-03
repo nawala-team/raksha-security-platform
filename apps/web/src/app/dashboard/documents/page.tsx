@@ -1,21 +1,134 @@
-import { FileText, Download, Plus } from "lucide-react";
+"use client";
+
+import {
+  FileText, Plus, CheckCircle2, PencilLine, Eye, CalendarClock,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { SecurityDocument } from "@/types";
+import { DataState } from "@/components/ui/data-state";
+import { useApiData, useApiList } from "@/hooks/use-api-data";
+import { api } from "@/lib/api";
+import { formatBytes, formatNumber, relativeTime } from "@/lib/utils";
 
-const mockDocuments: SecurityDocument[] = [
-  { id: "1", title: "Incident Response Plan", category: "Policy", version: "3.2", lastUpdated: "2024-01-10", author: "Security Team", status: "published" },
-  { id: "2", title: "Network Security Architecture", category: "Architecture", version: "2.1", lastUpdated: "2024-01-08", author: "Network Team", status: "published" },
-  { id: "3", title: "Data Classification Policy", category: "Policy", version: "1.5", lastUpdated: "2024-01-05", author: "Compliance Team", status: "published" },
-  { id: "4", title: "Disaster Recovery Runbook", category: "Runbook", version: "4.0-draft", lastUpdated: "2024-01-14", author: "Operations", status: "draft" },
-  { id: "5", title: "Access Control Matrix", category: "Reference", version: "2.0", lastUpdated: "2024-01-12", author: "IAM Team", status: "published" },
-  { id: "6", title: "Legacy VPN Decommission Plan", category: "Architecture", version: "1.0", lastUpdated: "2023-12-01", author: "Network Team", status: "archived" },
-];
+/** Mirrors the portal's `DocumentResponse`. */
+interface DocumentRecord {
+  id: string;
+  title: string;
+  description: string | null;
+  doc_type: string;
+  category: string | null;
+  status: string;
+  classification: string;
+  version: string;
+  file_name: string | null;
+  mime_type: string | null;
+  size_bytes: number | null;
+  content_sha256: string | null;
+  grc_policy_id: string | null;
+  grc_control_id: string | null;
+  incident_id: string | null;
+  owner_id: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  effective_date: string | null;
+  expires_at: string | null;
+  download_count: number;
+  created_at: string;
+  updated_at: string;
+}
 
-const statusColors = { published: "default" as const, draft: "secondary" as const, archived: "outline" as const };
+/** Mirrors the portal's `DocumentSummary`. */
+interface DocumentSummary {
+  total: number;
+  published: number;
+  draft: number;
+  in_review: number;
+  expired: number;
+  expiring_soon: number;
+  total_size_bytes: number;
+}
+
+const statusVariants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+  published: "default",
+  draft: "secondary",
+  in_review: "outline",
+  archived: "outline",
+  retired: "destructive",
+};
+
+const classificationVariants: Record<string, "critical" | "high" | "medium" | "low"> = {
+  restricted: "critical",
+  confidential: "high",
+  internal: "medium",
+  public: "low",
+};
+
+/** The `/documents/expiring` endpoint returns both past-due and upcoming docs. */
+function isExpired(iso: string | null): boolean {
+  if (!iso) return false;
+  const ms = new Date(iso).getTime();
+  return !Number.isNaN(ms) && ms < Date.now();
+}
+
+/** Absolute date for expiry columns, where "in 3 months" is less useful. */
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  const ms = new Date(iso).getTime();
+  if (Number.isNaN(ms)) return "—";
+  return new Date(ms).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
 
 export default function DocumentsPage() {
+  const summary = useApiData<DocumentSummary>(() => api.documents.summary());
+  const documents = useApiList<DocumentRecord>(() => api.documents.list());
+  const expiring = useApiData<DocumentRecord[]>(() => api.documents.expiring());
+
+  const expiringDocs = expiring.data ?? [];
+
+  const stats = [
+    {
+      label: "Total Documents",
+      value: formatNumber(summary.data?.total),
+      icon: FileText,
+      color: "text-blue-400",
+    },
+    {
+      label: "Published",
+      value: formatNumber(summary.data?.published),
+      icon: CheckCircle2,
+      color: "text-green-400",
+    },
+    {
+      label: "In Review",
+      value: formatNumber(summary.data?.in_review),
+      icon: Eye,
+      color: "text-yellow-400",
+    },
+    {
+      label: "Draft",
+      value: formatNumber(summary.data?.draft),
+      icon: PencilLine,
+      color: "text-muted-foreground",
+    },
+    {
+      label: "Expiring Soon",
+      value: formatNumber(summary.data?.expiring_soon),
+      icon: CalendarClock,
+      color: "text-orange-400",
+    },
+    {
+      label: "Expired",
+      value: formatNumber(summary.data?.expired),
+      icon: CalendarClock,
+      color: "text-red-400",
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -23,45 +136,173 @@ export default function DocumentsPage() {
           <h2 className="text-2xl font-bold text-foreground">Security Documents</h2>
           <p className="text-muted-foreground">Policies, runbooks, and reference materials</p>
         </div>
-        <Button><Plus className="h-4 w-4 mr-2" />New Document</Button>
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="text-sm">
+            {formatBytes(summary.data?.total_size_bytes)} stored
+          </Badge>
+          <Button><Plus className="h-4 w-4 mr-2" aria-hidden="true" />New Document</Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {mockDocuments.map((doc) => (
-          <Card key={doc.id} className="border-border hover:border-primary/30 transition-colors">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-primary shrink-0" />
-                  {doc.title}
-                </CardTitle>
-                <Badge variant={statusColors[doc.status]}>{doc.status}</Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-xs text-muted-foreground">
-                <div className="flex justify-between">
-                  <span>Category</span><span>{doc.category}</span>
+      <DataState
+        loading={summary.loading}
+        error={summary.error}
+        onRetry={summary.refetch}
+        loadingLabel="Loading document summary"
+      >
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          {stats.map((stat) => (
+            <Card key={stat.label} className="border-border">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <stat.icon className={`h-7 w-7 shrink-0 ${stat.color}`} aria-hidden="true" />
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span>Version</span><span>{doc.version}</span>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </DataState>
+
+
+      {/* Expiring Soon */}
+      <Card className="border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <CalendarClock className="h-5 w-5 text-orange-400" aria-hidden="true" />
+            Expiring Soon
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <DataState
+            loading={expiring.loading}
+            error={expiring.error}
+            isEmpty={expiringDocs.length === 0}
+            onRetry={expiring.refetch}
+            loadingLabel="Loading expiring documents"
+            emptyTitle="Nothing expiring"
+            emptyDescription="Documents due to expire within 30 days appear here."
+          >
+            <div className="space-y-2">
+              {expiringDocs.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="flex items-center justify-between rounded-lg border border-border px-4 py-3"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground">{doc.title}</span>
+                      <Badge variant="outline" className="text-xs">v{doc.version}</Badge>
+                      {classificationVariants[doc.classification] && (
+                        <Badge variant={classificationVariants[doc.classification]} className="text-xs">
+                          {doc.classification}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {doc.doc_type.replace(/_/g, " ")}
+                      {doc.category ? ` • ${doc.category}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground">
+                      Expires {formatDate(doc.expires_at)}
+                    </span>
+                    {isExpired(doc.expires_at) && (
+                      <Badge variant="destructive" className="text-xs">expired</Badge>
+                    )}
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span>Author</span><span>{doc.author}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Updated</span><span>{new Date(doc.lastUpdated).toLocaleDateString()}</span>
-                </div>
-              </div>
-              <div className="mt-3 pt-3 border-t border-border">
-                <Button variant="outline" size="sm" className="w-full">
-                  <Download className="h-3 w-3 mr-2" />Download
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              ))}
+            </div>
+          </DataState>
+        </CardContent>
+      </Card>
+
+
+      {/* Document Library */}
+      <Card className="border-border">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <FileText className="h-5 w-5 text-primary" aria-hidden="true" />
+              Document Library
+            </CardTitle>
+            <span className="text-xs text-muted-foreground">{formatNumber(documents.total)} documents</span>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <DataState
+            loading={documents.loading}
+            error={documents.error}
+            isEmpty={documents.items.length === 0}
+            onRetry={documents.refetch}
+            loadingLabel="Loading documents"
+            emptyTitle="No documents yet"
+            emptyDescription="Policies, runbooks and evidence uploaded to the platform appear here."
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <caption className="sr-only">
+                  Security documents with type, status, classification, version, size and expiry date.
+                </caption>
+                <thead>
+                  <tr className="border-b border-border bg-muted/30">
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Title</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Type</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Classification</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Version</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Size</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Expires</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Updated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {documents.items.map((doc) => (
+                    <tr key={doc.id} className="border-b border-border transition-colors hover:bg-muted/20">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-foreground">{doc.title}</p>
+                        {doc.file_name && (
+                          <p className="font-mono text-xs text-muted-foreground">{doc.file_name}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {doc.doc_type.replace(/_/g, " ")}
+                        {doc.category && (
+                          <p className="text-xs text-muted-foreground">{doc.category}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant={statusVariants[doc.status] ?? "outline"}>
+                          {doc.status.replace(/_/g, " ")}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        {classificationVariants[doc.classification] ? (
+                          <Badge variant={classificationVariants[doc.classification]}>
+                            {doc.classification}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{doc.classification}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">v{doc.version}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{formatBytes(doc.size_bytes)}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{formatDate(doc.expires_at)}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{relativeTime(doc.updated_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </DataState>
+        </CardContent>
+      </Card>
     </div>
   );
 }
+

@@ -143,6 +143,11 @@ async fn register(
     .execute(&state.db)
     .await?;
 
+    // Assign the user to the default tenant with a matching named role.
+    // Without this assignment `tenant_context_layer` cannot resolve a tenant
+    // and every tenant-scoped request would fail with 403.
+    assign_default_tenant_role(&state, user_id, &role).await?;
+
     // Create session
     let session = state
         .session_manager
@@ -163,6 +168,58 @@ async fn register(
         },
         tokens,
     }))
+}
+
+/// The default tenant seeded by `migrations/20260724010000_create_tenants.sql`.
+const DEFAULT_TENANT_ID: Uuid = Uuid::from_u128(0x00000000_0000_0000_0000_000000000001);
+
+/// Map a `UserRole` to the corresponding row in the `roles` table.
+///
+/// The names are seeded by `migrations/20260724020001_create_user_roles.sql`
+/// and do not always match the enum's snake_case form (`Admin` -> `tenant_admin`).
+fn role_name_for(role: &UserRole) -> &'static str {
+    match role {
+        UserRole::SuperAdmin => "super_admin",
+        UserRole::Admin => "tenant_admin",
+        UserRole::Analyst => "analyst",
+        UserRole::Operator => "operator",
+        UserRole::Viewer => "viewer",
+    }
+}
+
+/// Grant a newly registered user membership in the default tenant.
+///
+/// `tenant_context_layer` resolves a non-superadmin user's tenant by joining
+/// `tenants` against `user_roles.org_id`. A user with no row here cannot access
+/// any tenant-scoped endpoint, so registration must create the assignment.
+async fn assign_default_tenant_role(
+    state: &AppState,
+    user_id: Uuid,
+    role: &UserRole,
+) -> AppResult<()> {
+    let role_name = role_name_for(role);
+
+    let role_id = sqlx::query_scalar!("SELECT id FROM roles WHERE name = $1", role_name)
+        .fetch_optional(&state.db)
+        .await?
+        .ok_or_else(|| {
+            AppError::Internal(format!("Built-in role '{role_name}' is missing from the database"))
+        })?;
+
+    sqlx::query!(
+        r#"
+        INSERT INTO user_roles (user_id, role_id, org_id, is_active)
+        VALUES ($1, $2, $3, true)
+        ON CONFLICT (user_id, role_id, org_id) DO NOTHING
+        "#,
+        user_id,
+        role_id,
+        DEFAULT_TENANT_ID,
+    )
+    .execute(&state.db)
+    .await?;
+
+    Ok(())
 }
 
 #[derive(Debug, Deserialize)]

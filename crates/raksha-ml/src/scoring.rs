@@ -64,11 +64,11 @@ impl RiskScorer {
                 .map(|(_, w)| *w)
                 .unwrap_or(0.1);
 
-            let clamped_score = score.clamp(&0.0, &100.0);
+            let clamped_score = score.clamp(0.0, 100.0);
 
             components.push(RiskComponent {
                 category: category.to_string(),
-                score: *clamped_score,
+                score: clamped_score,
                 weight,
             });
 

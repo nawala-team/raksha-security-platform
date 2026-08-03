@@ -1,68 +1,98 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import {
-  Search, Play, Save, Clock, ChevronDown, BookOpen, Calendar,
+  Play, Clock, BookOpen, Calendar, CheckCircle2, XCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DataState } from "@/components/ui/data-state";
+import { useApiData, useApiList } from "@/hooks/use-api-data";
+import { api } from "@/lib/api";
+import { formatNumber, relativeTime } from "@/lib/utils";
 
-interface QueryResult {
-  [key: string]: string;
-}
-
-interface SavedQuery {
+/** Mirrors the portal's `HuntingQueryResponse`. */
+interface HuntingQuery {
   id: string;
   name: string;
-  query: string;
-  lastRun: string;
-  scheduled: boolean;
+  description: string | null;
+  rql: string;
+  query_source: string;
+  is_scheduled: boolean;
+  schedule_interval_mins: number | null;
+  alert_on_hits: boolean;
+  alert_threshold: number;
+  alert_severity: string;
+  last_run_at: string | null;
+  next_run_at: string | null;
+  last_hit_count: number | null;
+  run_count: number;
+  created_at: string;
 }
 
-const exampleQueries = [
-  { label: "Failed SSH logins (last 24h)", query: 'event.type = "auth_failure" AND service = "sshd" | timerange 24h' },
-  { label: "Outbound connections to rare IPs", query: 'direction = "outbound" AND dest.reputation = "unknown" | count by dest.ip | sort count desc' },
-  { label: "Process execution with encoded args", query: 'event.type = "process_start" AND cmdline matches "*base64*" | table host, user, cmdline' },
-  { label: "Lateral movement indicators", query: 'event.type = "network" AND src.zone = "internal" AND dest.zone = "internal" AND dest.port in (445, 3389, 5985)' },
-];
+/** Mirrors the portal's `HuntingRunResponse`. */
+interface HuntingRun {
+  id: string;
+  query_id: string;
+  trigger: string;
+  status: string;
+  total_hits: number | null;
+  duration_ms: number | null;
+  alert_triggered: boolean;
+  alert_id: string | null;
+  error_message: string | null;
+  started_at: string;
+  completed_at: string | null;
+}
 
-const mockResults: QueryResult[] = [
-  { timestamp: "2024-01-15 10:32:14", host: "prod-web-01", user: "root", source_ip: "45.33.32.156", event: "auth_failure" },
-  { timestamp: "2024-01-15 10:30:02", host: "prod-web-01", user: "admin", source_ip: "45.33.32.156", event: "auth_failure" },
-  { timestamp: "2024-01-15 10:28:45", host: "prod-api-01", user: "deploy", source_ip: "198.51.100.23", event: "auth_failure" },
-  { timestamp: "2024-01-15 10:25:11", host: "prod-db-01", user: "postgres", source_ip: "203.0.113.50", event: "auth_failure" },
-  { timestamp: "2024-01-15 10:22:33", host: "prod-web-02", user: "www-data", source_ip: "45.33.32.156", event: "auth_failure" },
-];
+/** Mirrors the portal's `ValidateResponse` from POST /hunting/validate. */
+interface ValidateResult {
+  valid: boolean;
+  error: string | null;
+  source: string | null;
+  has_filter: boolean;
+  aggregation_count: number;
+  limit: number | null;
+}
 
-const mockSavedQueries: SavedQuery[] = [
-  { id: "1", name: "Brute Force Detection", query: 'event.type = "auth_failure" | count by source_ip | where count > 5', lastRun: "2 min ago", scheduled: true },
-  { id: "2", name: "Suspicious Processes", query: 'event.type = "process_start" AND user = "root" AND parent != "systemd"', lastRun: "1 hour ago", scheduled: false },
-  { id: "3", name: "Data Exfil Candidates", query: 'direction = "outbound" AND bytes_out > 100MB | timerange 1h', lastRun: "30 min ago", scheduled: true },
-];
+const severityVariants: Record<string, "critical" | "high" | "medium" | "low"> = {
+  critical: "critical",
+  high: "high",
+  medium: "medium",
+  low: "low",
+};
 
 export default function HuntingPage() {
-  const [query, setQuery] = useState('event.type = "auth_failure" AND service = "sshd" | timerange 24h');
-  const [results, setResults] = useState<QueryResult[]>([]);
-  const [running, setRunning] = useState(false);
-  const [savedQueries] = useState(mockSavedQueries);
+  const queries = useApiData<HuntingQuery[]>(() => api.hunting.queries());
+  const runs = useApiList<HuntingRun>(() => api.hunting.runs());
 
-  const handleRun = () => {
-    setRunning(true);
-    setTimeout(() => {
-      setResults(mockResults);
-      setRunning(false);
-    }, 1500);
+  const [query, setQuery] = useState("");
+  const [validating, setValidating] = useState(false);
+  const [validation, setValidation] = useState<ValidateResult | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const savedQueries = queries.data ?? [];
+
+  // Runs reference their query by id; map ids to names for display.
+  const queryNames = new Map(savedQueries.map((q) => [q.id, q.name]));
+
+  // Validation happens against the real RQL parser in the portal, so it needs
+  // its own request rather than one of the page-level fetch hooks.
+  const handleValidate = async () => {
+    setValidating(true);
+    setValidation(null);
+    setValidationError(null);
+    try {
+      const result = (await api.hunting.validate(query)) as ValidateResult;
+      setValidation(result);
+    } catch (err: unknown) {
+      setValidationError(err instanceof Error ? err.message : "Validation failed");
+    } finally {
+      setValidating(false);
+    }
   };
-
-  const handleSelectExample = (value: string) => {
-    const example = exampleQueries.find((e) => e.label === value);
-    if (example) setQuery(example.query);
-  };
-
-  const columns = results.length > 0 ? Object.keys(results[0]) : [];
 
   return (
     <div className="space-y-6">
@@ -75,11 +105,13 @@ export default function HuntingPage() {
       <Card className="border-border">
         <CardContent className="p-4 space-y-4">
           <div className="flex items-center gap-2">
-            <Select onValueChange={handleSelectExample}>
-              <SelectTrigger className="w-64"><SelectValue placeholder="Example queries..." /></SelectTrigger>
+            <Select value={query} onValueChange={setQuery}>
+              <SelectTrigger className="w-64" aria-label="Load a saved query">
+                <SelectValue placeholder="Saved queries..." />
+              </SelectTrigger>
               <SelectContent>
-                {exampleQueries.map((eq) => (
-                  <SelectItem key={eq.label} value={eq.label}>{eq.label}</SelectItem>
+                {savedQueries.map((sq) => (
+                  <SelectItem key={sq.id} value={sq.rql}>{sq.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -93,84 +125,177 @@ export default function HuntingPage() {
             aria-label="Query editor"
           />
           <div className="flex items-center gap-2">
-            <Button onClick={handleRun} disabled={running || !query.trim()} className="gap-2">
-              <Play className="h-4 w-4" />{running ? "Running..." : "Run Query"}
+            <Button onClick={handleValidate} disabled={validating || !query.trim()} className="gap-2">
+              <Play className="h-4 w-4" aria-hidden="true" />
+              {validating ? "Validating..." : "Validate RQL"}
             </Button>
-            <Button variant="outline" className="gap-2"><Save className="h-4 w-4" /> Save Query</Button>
-            <div className="ml-auto flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Schedule</span>
-              <button
-                className="relative h-5 w-9 rounded-full bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
-                role="switch"
-                aria-checked="false"
-                aria-label="Toggle schedule"
-              >
-                <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-muted-foreground transition-transform" />
-              </button>
-            </div>
           </div>
+
+          {validationError && (
+            <p className="text-sm text-red-400" role="alert">{validationError}</p>
+          )}
+
+          {validation && (
+            <div
+              className={`rounded-md border p-3 text-sm ${
+                validation.valid
+                  ? "border-green-500/30 bg-green-500/5"
+                  : "border-red-500/30 bg-red-500/5"
+              }`}
+              role="status"
+              aria-live="polite"
+            >
+              <p className={`flex items-center gap-2 font-medium ${validation.valid ? "text-green-400" : "text-red-400"}`}>
+                {validation.valid ? (
+                  <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <XCircle className="h-4 w-4" aria-hidden="true" />
+                )}
+                {validation.valid ? "Valid RQL" : "Invalid RQL"}
+              </p>
+              {validation.error && (
+                <p className="mt-1 font-mono text-xs text-muted-foreground">{validation.error}</p>
+              )}
+              {validation.valid && (
+                <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                  <span>Source: {validation.source ?? "—"}</span>
+                  <span>Filter: {validation.has_filter ? "yes" : "none"}</span>
+                  <span>Aggregations: {formatNumber(validation.aggregation_count)}</span>
+                  <span>Limit: {validation.limit === null ? "unset" : formatNumber(validation.limit)}</span>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Results */}
-      {results.length > 0 && (
-        <Card className="border-border">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">{results.length} Results</CardTitle>
-              <span className="text-xs text-muted-foreground">Query completed in 0.34s</span>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
+      {/* Run History */}
+      <Card className="border-border">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Clock className="h-5 w-5 text-blue-400" aria-hidden="true" />
+              Run History
+            </CardTitle>
+            <span className="text-xs text-muted-foreground">{formatNumber(runs.total)} runs</span>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <DataState
+            loading={runs.loading}
+            error={runs.error}
+            isEmpty={runs.items.length === 0}
+            onRetry={runs.refetch}
+            loadingLabel="Loading run history"
+            emptyTitle="No hunting runs yet"
+            emptyDescription="Scheduled and manual query runs appear here once they execute."
+          >
             <div className="overflow-x-auto">
-              <table className="w-full text-sm" role="table">
+              <table className="w-full text-sm">
+                <caption className="sr-only">
+                  Hunting query run history with trigger, status, hit count and duration.
+                </caption>
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
-                    {columns.map((col) => (
-                      <th key={col} className="px-4 py-3 text-left font-medium text-muted-foreground">{col}</th>
-                    ))}
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Query</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Trigger</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Hits</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Duration</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Started</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Alert</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {results.map((row, i) => (
-                    <tr key={i} className="border-b border-border hover:bg-muted/20">
-                      {columns.map((col) => (
-                        <td key={col} className="px-4 py-3 font-mono text-xs text-foreground">{row[col]}</td>
-                      ))}
+                  {runs.items.map((run) => (
+                    <tr key={run.id} className="border-b border-border transition-colors hover:bg-muted/20">
+                      <td className="px-4 py-3 text-foreground">
+                        {queryNames.get(run.query_id) ?? "—"}
+                        {run.error_message && (
+                          <p className="font-mono text-xs text-red-400">{run.error_message}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{run.trigger}</td>
+                      <td className="px-4 py-3">
+                        <Badge variant={run.status === "failed" ? "destructive" : "outline"}>
+                          {run.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{formatNumber(run.total_hits)}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {run.duration_ms === null ? "—" : `${formatNumber(run.duration_ms)} ms`}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{relativeTime(run.started_at)}</td>
+                      <td className="px-4 py-3">
+                        {run.alert_triggered ? (
+                          <Badge variant="high" className="text-xs">alert raised</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </DataState>
+        </CardContent>
+      </Card>
+
 
       {/* Saved Queries */}
       <Card className="border-border">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <BookOpen className="h-5 w-5 text-blue-400" /> Saved Queries
+            <BookOpen className="h-5 w-5 text-blue-400" aria-hidden="true" /> Saved Queries
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {savedQueries.map((sq) => (
-            <div key={sq.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-foreground">{sq.name}</span>
-                  {sq.scheduled && <Badge variant="secondary" className="text-xs"><Calendar className="mr-1 h-3 w-3" />Scheduled</Badge>}
+          <DataState
+            loading={queries.loading}
+            error={queries.error}
+            isEmpty={savedQueries.length === 0}
+            onRetry={queries.refetch}
+            loadingLabel="Loading saved queries"
+            emptyTitle="No saved queries"
+            emptyDescription="Saved RQL hunts appear here with their schedule and run history."
+          >
+            <div className="space-y-2">
+              {savedQueries.map((sq) => (
+                <div key={sq.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground">{sq.name}</span>
+                      {sq.is_scheduled && (
+                        <Badge variant="secondary" className="text-xs">
+                          <Calendar className="mr-1 h-3 w-3" aria-hidden="true" />
+                          {sq.schedule_interval_mins === null
+                            ? "Scheduled"
+                            : `Every ${formatNumber(sq.schedule_interval_mins)}m`}
+                        </Badge>
+                      )}
+                      {sq.alert_on_hits && severityVariants[sq.alert_severity] && (
+                        <Badge variant={severityVariants[sq.alert_severity]} className="text-xs">
+                          alerts {sq.alert_severity}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="font-mono text-xs text-muted-foreground truncate max-w-lg">{sq.rql}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground">{formatNumber(sq.run_count)} runs</span>
+                    <span className="text-xs text-muted-foreground">Last: {relativeTime(sq.last_run_at)}</span>
+                    <Button variant="outline" size="sm" onClick={() => setQuery(sq.rql)}>
+                      Load
+                    </Button>
+                  </div>
                 </div>
-                <p className="font-mono text-xs text-muted-foreground truncate max-w-lg">{sq.query}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground">Last: {sq.lastRun}</span>
-                <Button variant="outline" size="sm" onClick={() => { setQuery(sq.query); handleRun(); }}>Run</Button>
-              </div>
+              ))}
             </div>
-          ))}
+          </DataState>
         </CardContent>
       </Card>
     </div>
   );
 }
+

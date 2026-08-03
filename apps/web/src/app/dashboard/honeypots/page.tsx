@@ -1,63 +1,135 @@
-﻿"use client";
+"use client";
 
-import { useState } from "react";
 import {
-  Bug, Wifi, Server, Mail, Database, Plus, Activity, Users, AlertTriangle, Clock,
+  Bug, Wifi, Server, Mail, Database, Activity, Users, AlertTriangle, Clock, RefreshCw, Globe,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DataState } from "@/components/ui/data-state";
+import { useApiData, useApiList } from "@/hooks/use-api-data";
+import { api } from "@/lib/api";
+import { formatNumber, relativeTime } from "@/lib/utils";
 
+/** Mirrors the portal's `HoneypotResponse`. */
 interface Honeypot {
   id: string;
   name: string;
-  type: "SSH" | "HTTP" | "SMTP" | "MySQL";
-  port: number;
-  status: "Active" | "Stopped";
-  interactions: number;
+  description: string | null;
+  honeypot_type: string;
+  status: string;
+  listen_ip: string | null;
+  listen_port: number;
+  server_id: string | null;
+  emulated_banner: string | null;
+  interaction_count: number;
+  unique_attackers: number;
+  last_interaction_at: string | null;
+  created_at: string;
 }
 
+/** Mirrors the portal's `HoneypotSummary`. */
+interface HoneypotSummary {
+  total: number;
+  running: number;
+  stopped: number;
+  interactions_24h: number;
+  unique_attackers_24h: number;
+  exploit_attempts_24h: number;
+  critical_interactions_24h: number;
+}
+
+/**
+ * Mirrors the portal's `InteractionResponse`. The portal deliberately omits the
+ * attempted password, so only the username is available here.
+ */
 interface Interaction {
   id: string;
-  time: string;
-  sourceIp: string;
-  honeypot: string;
-  action: string;
-  dataCaptured: string;
+  honeypot_id: string;
+  source_ip: string;
+  source_port: number | null;
+  country_code: string | null;
+  asn: string | null;
+  interaction_type: string;
+  username_tried: string | null;
+  severity: string;
+  occurred_at: string;
 }
 
-const mockHoneypots: Honeypot[] = [
-  { id: "1", name: "ssh-trap-01", type: "SSH", port: 2222, status: "Active", interactions: 342 },
-  { id: "2", name: "web-decoy-01", type: "HTTP", port: 8080, status: "Active", interactions: 128 },
-  { id: "3", name: "smtp-lure-01", type: "SMTP", port: 2525, status: "Active", interactions: 56 },
-  { id: "4", name: "mysql-pot-01", type: "MySQL", port: 3307, status: "Stopped", interactions: 89 },
-  { id: "5", name: "ssh-trap-02", type: "SSH", port: 2223, status: "Active", interactions: 215 },
-];
+/** Mirrors the portal's `TopAttacker`. */
+interface TopAttacker {
+  source_ip: string;
+  country_code: string | null;
+  interaction_count: number;
+  exploit_attempts: number;
+  last_seen: string | null;
+}
 
-const mockInteractions: Interaction[] = [
-  { id: "1", time: "2024-01-15 10:32:14", sourceIp: "45.33.32.156", honeypot: "ssh-trap-01", action: "Login attempt", dataCaptured: "root:admin123" },
-  { id: "2", time: "2024-01-15 10:30:45", sourceIp: "198.51.100.23", honeypot: "web-decoy-01", action: "HTTP request", dataCaptured: "GET /wp-admin/" },
-  { id: "3", time: "2024-01-15 10:28:11", sourceIp: "203.0.113.50", honeypot: "smtp-lure-01", action: "Relay attempt", dataCaptured: "RCPT TO: spam@test.com" },
-  { id: "4", time: "2024-01-15 10:25:03", sourceIp: "45.33.32.156", honeypot: "ssh-trap-01", action: "Login attempt", dataCaptured: "admin:password" },
-  { id: "5", time: "2024-01-15 10:22:58", sourceIp: "192.0.2.100", honeypot: "ssh-trap-02", action: "Login attempt", dataCaptured: "ubuntu:ubuntu" },
-  { id: "6", time: "2024-01-15 10:20:30", sourceIp: "198.51.100.23", honeypot: "web-decoy-01", action: "HTTP request", dataCaptured: "POST /xmlrpc.php" },
-];
+/** Icon per honeypot_type; the API sends free-form lowercase protocol names. */
+const typeIcons: Record<string, typeof Wifi> = {
+  ssh: Wifi,
+  http: Server,
+  https: Server,
+  smtp: Mail,
+  mysql: Database,
+  postgres: Database,
+  redis: Database,
+};
 
-const typeIcons = { SSH: Wifi, HTTP: Server, SMTP: Mail, MySQL: Database };
-
-const stats = [
-  { label: "Active Honeypots", value: "4", icon: Bug, color: "text-green-400" },
-  { label: "Interactions Today", value: "87", icon: Activity, color: "text-blue-400" },
-  { label: "Unique Attackers", value: "23", icon: Users, color: "text-purple-400" },
-  { label: "Critical Alerts", value: "5", icon: AlertTriangle, color: "text-red-400" },
-];
+const severityVariants: Record<string, "critical" | "high" | "medium" | "low"> = {
+  critical: "critical",
+  high: "high",
+  medium: "medium",
+  low: "low",
+};
 
 export default function HoneypotsPage() {
-  const [showDeploy, setShowDeploy] = useState(false);
-  const [deployType, setDeployType] = useState("SSH");
-  const [deployPort, setDeployPort] = useState("");
+  const summary = useApiData<HoneypotSummary>(() => api.honeypots.summary());
+  const honeypots = useApiData<Honeypot[]>(() => api.honeypots.list());
+  const interactions = useApiList<Interaction>(() =>
+    api.honeypots.interactions()
+  );
+  const attackers = useApiData<TopAttacker[]>(() => api.honeypots.topAttackers());
+
+  const pots = honeypots.data ?? [];
+  const topAttackers = attackers.data ?? [];
+
+  // Interactions reference their honeypot by id, so map ids to names for display.
+  const potNames = new Map(pots.map((hp) => [hp.id, hp.name]));
+
+  const stats = [
+    {
+      label: "Active Honeypots",
+      value: formatNumber(summary.data?.running),
+      icon: Bug,
+      color: "text-green-400",
+    },
+    {
+      label: "Interactions (24h)",
+      value: formatNumber(summary.data?.interactions_24h),
+      icon: Activity,
+      color: "text-blue-400",
+    },
+    {
+      label: "Unique Attackers (24h)",
+      value: formatNumber(summary.data?.unique_attackers_24h),
+      icon: Users,
+      color: "text-purple-400",
+    },
+    {
+      label: "Critical Interactions (24h)",
+      value: formatNumber(summary.data?.critical_interactions_24h),
+      icon: AlertTriangle,
+      color: "text-red-400",
+    },
+  ];
+
+  const refreshAll = () => {
+    summary.refetch();
+    honeypots.refetch();
+    interactions.refetch();
+    attackers.refetch();
+  };
 
   return (
     <div className="space-y-6">
@@ -66,126 +138,205 @@ export default function HoneypotsPage() {
           <h2 className="text-2xl font-bold text-foreground">Honeypots</h2>
           <p className="text-muted-foreground">Deploy and monitor deception technology</p>
         </div>
-        <Button onClick={() => setShowDeploy(!showDeploy)} className="gap-2">
-          <Plus className="h-4 w-4" /> Deploy New Honeypot
+        <Button onClick={refreshAll} variant="outline" className="gap-2">
+          <RefreshCw className="h-4 w-4" aria-hidden="true" /> Refresh
         </Button>
       </div>
 
-      {showDeploy && (
-        <Card className="border-border border-primary/30">
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-end gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Type</label>
-                <Select value={deployType} onValueChange={setDeployType}>
-                  <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SSH">SSH</SelectItem>
-                    <SelectItem value="HTTP">HTTP</SelectItem>
-                    <SelectItem value="SMTP">SMTP</SelectItem>
-                    <SelectItem value="MySQL">MySQL</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Port</label>
-                <Input placeholder="e.g. 2222" value={deployPort} onChange={(e) => setDeployPort(e.target.value)} className="w-28" />
-              </div>
-              <Button size="sm">Deploy</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <Card key={stat.label} className="border-border">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <stat.icon className={`h-8 w-8 ${stat.color}`} />
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                  <p className="text-xs text-muted-foreground">{stat.label}</p>
+      <DataState
+        loading={summary.loading}
+        error={summary.error}
+        onRetry={summary.refetch}
+        loadingLabel="Loading honeypot summary"
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {stats.map((stat) => (
+            <Card key={stat.label} className="border-border">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <stat.icon className={`h-8 w-8 ${stat.color}`} aria-hidden="true" />
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </DataState>
+
 
       <Card className="border-border">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">Honeypot Inventory</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" role="table">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Name</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Type</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Port</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Interactions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mockHoneypots.map((hp) => {
-                  const Icon = typeIcons[hp.type];
-                  return (
-                    <tr key={hp.id} className="border-b border-border hover:bg-muted/20">
-                      <td className="px-4 py-3 font-medium text-foreground">{hp.name}</td>
-                      <td className="px-4 py-3"><span className="flex items-center gap-1.5 text-muted-foreground"><Icon className="h-4 w-4" />{hp.type}</span></td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{hp.port}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 text-xs font-medium ${hp.status === "Active" ? "text-green-400" : "text-muted-foreground"}`}>
-                          <span className={`h-2 w-2 rounded-full ${hp.status === "Active" ? "bg-green-400" : "bg-muted-foreground"}`} />{hp.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-foreground">{hp.interactions}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <DataState
+            loading={honeypots.loading}
+            error={honeypots.error}
+            isEmpty={pots.length === 0}
+            onRetry={honeypots.refetch}
+            loadingLabel="Loading honeypots"
+            emptyTitle="No honeypots deployed"
+            emptyDescription="Deployed decoys appear here once they register with the portal."
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <caption className="sr-only">
+                  Deployed honeypots with type, listening port, status and interaction totals
+                </caption>
+                <thead>
+                  <tr className="border-b border-border bg-muted/30">
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Name</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Type</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Port</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Interactions</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Last Seen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pots.map((hp) => {
+                    const Icon = typeIcons[hp.honeypot_type.toLowerCase()] ?? Bug;
+                    const running = hp.status === "running";
+                    return (
+                      <tr key={hp.id} className="border-b border-border hover:bg-muted/20">
+                        <td className="px-4 py-3 font-medium text-foreground">{hp.name}</td>
+                        <td className="px-4 py-3"><span className="flex items-center gap-1.5 uppercase text-muted-foreground"><Icon className="h-4 w-4" aria-hidden="true" />{hp.honeypot_type}</span></td>
+                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{hp.listen_port}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center gap-1 text-xs font-medium capitalize ${running ? "text-green-400" : "text-muted-foreground"}`}>
+                            <span className={`h-2 w-2 rounded-full ${running ? "bg-green-400" : "bg-muted-foreground"}`} aria-hidden="true" />{hp.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-foreground">{formatNumber(hp.interaction_count)}</td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">{relativeTime(hp.last_interaction_at)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </DataState>
         </CardContent>
       </Card>
+
 
       <Card className="border-border">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Clock className="h-5 w-5 text-blue-400" />
+            <Clock className="h-5 w-5 text-blue-400" aria-hidden="true" />
             Recent Interactions
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" role="table">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Time</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Source IP</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Honeypot</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Action</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Data Captured</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mockInteractions.map((ix) => (
-                  <tr key={ix.id} className="border-b border-border hover:bg-muted/20">
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{ix.time}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-foreground">{ix.sourceIp}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{ix.honeypot}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{ix.action}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-foreground">{ix.dataCaptured}</td>
+          <DataState
+            loading={interactions.loading}
+            error={interactions.error}
+            isEmpty={interactions.items.length === 0}
+            onRetry={interactions.refetch}
+            loadingLabel="Loading interactions"
+            emptyTitle="No interactions captured"
+            emptyDescription="Attacker activity against your decoys appears here."
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <caption className="sr-only">
+                  Recent honeypot interactions with source, type, attempted username and severity
+                </caption>
+                <thead>
+                  <tr className="border-b border-border bg-muted/30">
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Time</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Source IP</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Honeypot</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Action</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Username Tried</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Severity</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {interactions.items.map((ix) => (
+                    <tr key={ix.id} className="border-b border-border hover:bg-muted/20">
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{relativeTime(ix.occurred_at)}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-foreground">
+                        {ix.source_ip}
+                        {ix.country_code ? ` (${ix.country_code})` : ""}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{potNames.get(ix.honeypot_id) ?? "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{ix.interaction_type.replace(/_/g, " ")}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-foreground">{ix.username_tried ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        {severityVariants[ix.severity] ? (
+                          <Badge variant={severityVariants[ix.severity]}>{ix.severity}</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{ix.severity}</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </DataState>
+        </CardContent>
+      </Card>
+
+
+      <Card className="border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Globe className="h-5 w-5 text-purple-400" aria-hidden="true" />
+            Top Attackers
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <DataState
+            loading={attackers.loading}
+            error={attackers.error}
+            isEmpty={topAttackers.length === 0}
+            onRetry={attackers.refetch}
+            loadingLabel="Loading top attackers"
+            emptyTitle="No attackers recorded"
+            emptyDescription="Sources appear here once they interact with a honeypot."
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <caption className="sr-only">
+                  Most active attacker source IPs with interaction and exploit attempt counts
+                </caption>
+                <thead>
+                  <tr className="border-b border-border bg-muted/30">
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Source IP</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Country</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Interactions</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Exploit Attempts</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Last Seen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topAttackers.map((attacker) => (
+                    <tr key={attacker.source_ip} className="border-b border-border hover:bg-muted/20">
+                      <td className="px-4 py-3 font-mono text-xs text-foreground">{attacker.source_ip}</td>
+                      <td className="px-4 py-3">
+                        <Badge variant="outline" className="text-xs">{attacker.country_code ?? "unknown"}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-foreground">{formatNumber(attacker.interaction_count)}</td>
+                      <td className="px-4 py-3">
+                        <span className={attacker.exploit_attempts > 0 ? "font-semibold text-red-400" : "text-muted-foreground"}>
+                          {formatNumber(attacker.exploit_attempts)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{relativeTime(attacker.last_seen)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </DataState>
         </CardContent>
       </Card>
     </div>
   );
 }
+

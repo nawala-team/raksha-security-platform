@@ -1,27 +1,51 @@
 import type { User, AuthToken } from "@/types";
 
+// The token pair is persisted as a single JSON blob so that this module and
+// `lib/api.ts` agree on one storage format.
 const TOKEN_KEY = "raksha_auth_token";
-const REFRESH_KEY = "raksha_refresh_token";
 
+function storage(): Storage | null {
+  if (typeof window === "undefined" || !window.localStorage) return null;
+  return window.localStorage;
+}
+
+/** Read the stored token pair, or null when absent/corrupt. */
+export function getStoredTokens(): AuthToken | null {
+  const store = storage();
+  if (!store) return null;
+
+  const raw = store.getItem(TOKEN_KEY);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as AuthToken;
+    return parsed.access_token ? parsed : null;
+  } catch {
+    store.removeItem(TOKEN_KEY);
+    return null;
+  }
+}
+
+/** Return just the access token, which is what Authorization headers need. */
 export function getStoredToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
+  return getStoredTokens()?.access_token ?? null;
+}
+
+export function getStoredRefreshToken(): string | null {
+  return getStoredTokens()?.refresh_token ?? null;
 }
 
 export function setStoredToken(token: AuthToken): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(TOKEN_KEY, token.accessToken);
-  localStorage.setItem(REFRESH_KEY, token.refreshToken);
+  storage()?.setItem(TOKEN_KEY, JSON.stringify(token));
 }
 
 export function clearStoredToken(): void {
-  if (typeof window === "undefined") return;
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_KEY);
+  storage()?.removeItem(TOKEN_KEY);
 }
 
 export function isAuthenticated(): boolean {
-  return !!getStoredToken();
+  const token = getStoredToken();
+  return !!token && !isTokenExpired(token);
 }
 
 export function parseJwt(token: string): Record<string, unknown> | null {
@@ -67,12 +91,18 @@ export function hasRole(requiredRole: User["role"]): boolean {
   const user = getCurrentUser();
   if (!user) return false;
 
+  // Mirrors the server-side hierarchy in raksha-core: UserRole::level().
   const roleHierarchy: Record<User["role"], number> = {
+    super_admin: 5,
     admin: 4,
     analyst: 3,
     operator: 2,
     viewer: 1,
   };
 
-  return roleHierarchy[user.role] >= roleHierarchy[requiredRole];
+  const actual = roleHierarchy[user.role];
+  const required = roleHierarchy[requiredRole];
+  if (actual === undefined || required === undefined) return false;
+
+  return actual >= required;
 }

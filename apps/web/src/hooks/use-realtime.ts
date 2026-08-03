@@ -34,7 +34,23 @@ interface RealtimeState {
   reconnectAttempts: number;
 }
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080/api/v1/ws";
+/**
+ * Resolve the WebSocket endpoint.
+ *
+ * A hardcoded localhost default breaks any deployment that is not on the
+ * developer's machine, so derive the URL from the current origin instead and
+ * let NEXT_PUBLIC_WS_URL override it when the portal lives elsewhere.
+ */
+function resolveWsUrl(): string {
+  if (process.env.NEXT_PUBLIC_WS_URL) return process.env.NEXT_PUBLIC_WS_URL;
+
+  if (typeof window !== "undefined") {
+    const scheme = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${scheme}//${window.location.host}/api/v1/ws`;
+  }
+
+  return "ws://localhost:8080/api/v1/ws";
+}
 
 export function useRealtime({
   channels,
@@ -57,7 +73,7 @@ export function useRealtime({
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     try {
-      const ws = new WebSocket(WS_URL);
+      const ws = new WebSocket(resolveWsUrl());
       wsRef.current = ws;
 
       ws.onopen = () => {

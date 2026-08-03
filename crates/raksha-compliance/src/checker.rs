@@ -20,7 +20,7 @@ impl ComplianceChecker {
         &self,
         standard: ComplianceStandard,
     ) -> AppResult<ComplianceReport> {
-        let rules = self.get_rules_for_standard(&standard).await?;
+        let rules = self.get_rules_for_standard(&standard.name).await?;
         let mut findings = Vec::new();
 
         for rule in &rules {
@@ -68,18 +68,17 @@ impl ComplianceChecker {
 
     async fn get_rules_for_standard(
         &self,
-        standard: &ComplianceStandard,
+        standard_name: &str,
     ) -> AppResult<Vec<ComplianceRule>> {
-        let rules = sqlx::query_as!(
-            ComplianceRule,
+        let rules = sqlx::query_as::<_, ComplianceRule>(
             r#"
-            SELECT id, standard as "standard: _", control_id, title, description, category, severity, automated, check_query
+            SELECT id, standard, control_id, title, description, category, severity, automated, check_query
             FROM compliance_rules
             WHERE standard = $1
             ORDER BY control_id
             "#,
-            standard as &ComplianceStandard,
         )
+        .bind(standard_name)
         .fetch_all(&self.db)
         .await?;
 

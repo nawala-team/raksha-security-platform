@@ -10,15 +10,18 @@ class ApiClient {
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
 
-    // Restore token from localStorage on init
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("raksha_auth_token");
+    // Restore token from localStorage on init.
+    // Access it via `window` so the guard above actually covers the call:
+    // in non-browser environments (SSR, jsdom before setup) the bare
+    // `localStorage` global may be undefined even when `window` exists.
+    if (typeof window !== "undefined" && window.localStorage) {
+      const stored = window.localStorage.getItem("raksha_auth_token");
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
           this.token = parsed.access_token || null;
         } catch {
-          localStorage.removeItem("raksha_auth_token");
+          window.localStorage.removeItem("raksha_auth_token");
         }
       }
     }
@@ -30,8 +33,8 @@ class ApiClient {
 
   clearToken() {
     this.token = null;
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("raksha_auth_token");
+    if (typeof window !== "undefined" && window.localStorage) {
+      window.localStorage.removeItem("raksha_auth_token");
     }
   }
 
@@ -85,6 +88,13 @@ class ApiClient {
     });
   }
 
+  async patch<T>(endpoint: string, data?: unknown): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: "PATCH",
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
   async delete<T>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: "DELETE" });
   }
@@ -131,12 +141,24 @@ export const api = {
       return apiClient.get(`/alerts${query}`);
     },
     get: (id: string) => apiClient.get(`/alerts/${id}`),
-    acknowledge: (id: string) => apiClient.put(`/alerts/${id}/acknowledge`),
-    resolve: (id: string) => apiClient.put(`/alerts/${id}/resolve`),
+    create: (data: unknown) => apiClient.post("/alerts", data),
+    acknowledge: (id: string) =>
+      apiClient.patch(`/alerts/${id}/status`, { status: "acknowledged" }),
+    resolve: (id: string) =>
+      apiClient.patch(`/alerts/${id}/status`, { status: "resolved" }),
+  },
+  tenants: {
+    list: () => apiClient.get("/tenants"),
+    get: (id: string) => apiClient.get(`/tenants/${id}`),
+    create: (data: unknown) => apiClient.post("/tenants", data),
+    update: (id: string, data: unknown) => apiClient.put(`/tenants/${id}`, data),
+    suspend: (id: string) => apiClient.post(`/tenants/${id}/suspend`),
+    stats: (id: string) => apiClient.get(`/tenants/${id}/stats`),
   },
   servers: {
     list: () => apiClient.get("/servers"),
     get: (id: string) => apiClient.get(`/servers/${id}`),
+    summary: () => apiClient.get("/servers/summary"),
   },
   network: {
     events: (params?: Record<string, string>) => {
@@ -144,14 +166,115 @@ export const api = {
       return apiClient.get(`/network/events${query}`);
     },
     rules: () => apiClient.get("/network/rules"),
+    summary: () => apiClient.get("/network/summary"),
+    topTalkers: () => apiClient.get("/network/top-talkers"),
+  },
+  containers: {
+    list: (params?: Record<string, string>) => {
+      const query = params ? `?${new URLSearchParams(params)}` : "";
+      return apiClient.get(`/containers${query}`);
+    },
+    get: (id: string) => apiClient.get(`/containers/${id}`),
+    summary: () => apiClient.get("/containers/summary"),
+    scans: () => apiClient.get("/containers/scans"),
+  },
+  honeypots: {
+    list: () => apiClient.get("/honeypots"),
+    summary: () => apiClient.get("/honeypots/summary"),
+    interactions: (params?: Record<string, string>) => {
+      const query = params ? `?${new URLSearchParams(params)}` : "";
+      return apiClient.get(`/honeypots/interactions${query}`);
+    },
+    topAttackers: () => apiClient.get("/honeypots/top-attackers"),
+  },
+  darkweb: {
+    monitors: () => apiClient.get("/darkweb/monitors"),
+    findings: (params?: Record<string, string>) => {
+      const query = params ? `?${new URLSearchParams(params)}` : "";
+      return apiClient.get(`/darkweb/findings${query}`);
+    },
+    finding: (id: string) => apiClient.get(`/darkweb/findings/${id}`),
+    summary: () => apiClient.get("/darkweb/summary"),
+  },
+  hunting: {
+    queries: () => apiClient.get("/hunting/queries"),
+    query: (id: string) => apiClient.get(`/hunting/queries/${id}`),
+    queryRuns: (id: string) => apiClient.get(`/hunting/queries/${id}/runs`),
+    runs: (params?: Record<string, string>) => {
+      const query = params ? `?${new URLSearchParams(params)}` : "";
+      return apiClient.get(`/hunting/runs${query}`);
+    },
+    validate: (rql: string) => apiClient.post("/hunting/validate", { rql }),
+  },
+  backups: {
+    jobs: () => apiClient.get("/backups/jobs"),
+    job: (id: string) => apiClient.get(`/backups/jobs/${id}`),
+    jobRuns: (id: string) => apiClient.get(`/backups/jobs/${id}/runs`),
+    runs: (params?: Record<string, string>) => {
+      const query = params ? `?${new URLSearchParams(params)}` : "";
+      return apiClient.get(`/backups/runs${query}`);
+    },
+    summary: () => apiClient.get("/backups/summary"),
+  },
+  documents: {
+    list: (params?: Record<string, string>) => {
+      const query = params ? `?${new URLSearchParams(params)}` : "";
+      return apiClient.get(`/documents${query}`);
+    },
+    get: (id: string) => apiClient.get(`/documents/${id}`),
+    summary: () => apiClient.get("/documents/summary"),
+    expiring: () => apiClient.get("/documents/expiring"),
+  },
+  incidents: {
+    list: (params?: Record<string, string>) => {
+      const query = params ? `?${new URLSearchParams(params)}` : "";
+      return apiClient.get(`/incidents${query}`);
+    },
+    get: (id: string) => apiClient.get(`/incidents/${id}`),
+    timeline: (id: string) => apiClient.get(`/incidents/${id}/timeline`),
+    tasks: (id: string) => apiClient.get(`/incidents/${id}/tasks`),
+    summary: () => apiClient.get("/incidents/summary"),
+  },
+  grc: {
+    risks: () => apiClient.get("/grc/risks"),
+    risk: (id: string) => apiClient.get(`/grc/risks/${id}`),
+    policies: () => apiClient.get("/grc/policies"),
+    controls: () => apiClient.get("/grc/controls"),
+    summary: () => apiClient.get("/grc/summary"),
+  },
+  vulnerabilities: {
+    scans: (params?: Record<string, string>) => {
+      const query = params ? `?${new URLSearchParams(params)}` : "";
+      return apiClient.get(`/vulnerabilities/scans${query}`);
+    },
+    scan: (id: string) => apiClient.get(`/vulnerabilities/scans/${id}`),
+    summary: () => apiClient.get("/vulnerabilities/summary"),
+  },
+  fim: {
+    events: (params?: Record<string, string>) => {
+      const query = params ? `?${new URLSearchParams(params)}` : "";
+      return apiClient.get(`/fim/events${query}`);
+    },
+    event: (id: string) => apiClient.get(`/fim/events/${id}`),
+    summary: () => apiClient.get("/fim/summary"),
+    topPaths: () => apiClient.get("/fim/top-paths"),
+  },
+  settings: {
+    channels: () => apiClient.get("/settings/channels"),
+    channel: (id: string) => apiClient.get(`/settings/channels/${id}`),
+    rules: () => apiClient.get("/settings/rules"),
+    templates: () => apiClient.get("/settings/templates"),
+    summary: () => apiClient.get("/settings/summary"),
   },
   databases: {
     list: () => apiClient.get("/databases"),
     get: (id: string) => apiClient.get(`/databases/${id}`),
   },
   compliance: {
-    frameworks: () => apiClient.get("/compliance/frameworks"),
-    get: (id: string) => apiClient.get(`/compliance/frameworks/${id}`),
+    scores: () => apiClient.get("/compliance/scores"),
+    score: (id: string) => apiClient.get(`/compliance/scores/${id}`),
+    standards: () => apiClient.get("/compliance/standards"),
+    controls: () => apiClient.get("/compliance/controls"),
   },
   audit: {
     list: (params?: Record<string, string>) => {
@@ -164,6 +287,8 @@ export const api = {
     get: (id: string) => apiClient.get(`/users/${id}`),
     create: (data: unknown) => apiClient.post("/users", data),
     update: (id: string, data: unknown) => apiClient.put(`/users/${id}`, data),
+    updateRole: (id: string, role: string) =>
+      apiClient.put(`/users/${id}/role`, { role }),
     delete: (id: string) => apiClient.delete(`/users/${id}`),
   },
   setup: {

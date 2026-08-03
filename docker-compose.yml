@@ -67,13 +67,19 @@ services:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile.web
+      args:
+        # Baked into the build: next.config.js resolves rewrites() at build time.
+        # Inside the compose network the portal is always reachable as `portal`,
+        # so this is intentionally not taken from .env (a local value such as
+        # http://localhost:8080 would be unreachable from this container).
+        PORTAL_API_URL: http://portal:8080
     image: raksha/web:${RAKSHA_VERSION:-latest}
     container_name: raksha-web
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-3000}:3000"
     environment:
-      NEXT_PUBLIC_API_URL: http://portal:8080
+      PORTAL_API_URL: http://portal:8080
       NODE_ENV: production
     depends_on:
       portal:

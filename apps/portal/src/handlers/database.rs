@@ -36,11 +36,11 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/", routing::get(list_databases))
         .route("/", routing::post(register_database))
-        .route("/{db_id}", routing::get(get_database))
-        .route("/{db_id}", routing::delete(remove_database))
-        .route("/{db_id}/metrics", routing::get(get_metrics))
-        .route("/{db_id}/queries", routing::get(get_slow_queries))
-        .route("/{db_id}/permissions", routing::get(check_permissions))
+        .route("/:db_id", routing::get(get_database))
+        .route("/:db_id", routing::delete(remove_database))
+        .route("/:db_id/metrics", routing::get(get_metrics))
+        .route("/:db_id/queries", routing::get(get_slow_queries))
+        .route("/:db_id/permissions", routing::get(check_permissions))
 }
 
 async fn list_databases(State(_state): State<AppState>) -> Json<Vec<DatabaseInstanceResponse>> {

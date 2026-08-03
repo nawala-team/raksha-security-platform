@@ -29,7 +29,7 @@ CREATE TABLE tenants (
     retention_days  INTEGER NOT NULL DEFAULT 90,
     
     -- Contact and metadata
-    contact_email   VARCHAR(255) NOT NULL,
+    contact_email   VARCHAR(255),
     contact_name    VARCHAR(255),
     phone           VARCHAR(50),
     address         JSONB DEFAULT '{}',

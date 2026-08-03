@@ -2,7 +2,7 @@ use serde::Deserialize;
 use tracing::{error, info, warn};
 
 #[derive(Debug, Deserialize)]
-struct UpdateInfo {
+pub struct UpdateInfo {
     pub version: String,
     pub download_url: String,
     pub checksum_sha256: String,

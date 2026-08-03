@@ -57,7 +57,8 @@ pub fn collect_process_metrics(sys: &mut System) -> ProcessMetrics {
             cpu_usage: proc.cpu_usage(),
             memory_bytes: proc.memory(),
             status: format!("{:?}", proc.status()),
-            user: proc.user_id().map(|u| format!("{u}")),
+            // `Uid` does not implement `Display`; it derefs to the platform uid type.
+            user: proc.user_id().map(|u| format!("{}", **u)),
             command: proc.cmd().iter().map(|s| s.to_string_lossy().to_string()).collect::<Vec<_>>().join(" "),
         })
         .collect();

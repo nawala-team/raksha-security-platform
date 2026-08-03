@@ -325,11 +325,11 @@ pub fn router(state: IncidentState) -> axum::Router {
 
     axum::Router::new()
         .route("/incidents", post(create_incident).get(list_incidents))
-        .route("/incidents/{id}", get(get_incident))
-        .route("/incidents/{id}/status", put(update_status))
-        .route("/incidents/{id}/assign", put(assign_incident))
-        .route("/incidents/{id}/timeline", post(add_timeline_event))
-        .route("/incidents/{id}/playbook/{playbook_id}", post(execute_playbook))
+        .route("/incidents/:id", get(get_incident))
+        .route("/incidents/:id/status", put(update_status))
+        .route("/incidents/:id/assign", put(assign_incident))
+        .route("/incidents/:id/timeline", post(add_timeline_event))
+        .route("/incidents/:id/playbook/:playbook_id", post(execute_playbook))
         .route("/playbooks/suggest", get(get_playbook_suggestions))
         .with_state(state)
 }

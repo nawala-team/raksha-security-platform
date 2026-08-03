@@ -46,7 +46,7 @@ export default function SetupPage() {
   const [adminConfig, setAdminConfig] = useState({
     name: "", email: "", password: "", confirmPassword: "",
   });
-  const [modules, setModules] = useState({
+  const [modules, setModules] = useState<Record<string, boolean>>({
     serverMonitoring: true, networkSecurity: true, databaseMonitoring: true,
     complianceEngine: true, threatIntelligence: true, auditTrail: true,
   });
