@@ -33,6 +33,7 @@ pub fn build_router(state: AppState) -> Router {
     // Protected routes (auth required)
     let protected_routes = Router::new()
         .nest("/dashboard", handlers::dashboard::routes())
+        .nest("/attack-surface", handlers::attack_surface::routes())
         .nest("/servers", handlers::servers::routes())
         .nest("/network", handlers::network::routes())
         .nest("/containers", handlers::containers::routes())

@@ -101,13 +101,17 @@ Part of the [Nawala Ecosystem](https://github.com/dansiapa/nawala-gateway-platfo
 | FIM (list events, summary, export CSV) | ✅ | ⏳ (read + export) |
 | Databases (list, register, get, remove, metrics) | ✅ | ✅ |
 | Threat Intel (feeds, IOCs, add IOC, search) | ✅ | ✅ |
+| Attack Surface (list, add, remove, summary) | ✅ | ✅ |
+| Audit Trail (list) | ✅ | ⏳ (read) |
 | Servers, Network, Containers, Honeypots, Dark Web, Hunting, Backups, Documents, Incidents, GRC, Vulnerabilities | ✅ | ⏳ (read-only) |
-| Audit, Attack Surface, Settings | ⏳ | ⏳ |
+| Settings | ✅ | ⏳ (read) |
 
 **Legenda:** ✅ = berfungsi penuh · ⏳ = data tampil / sebagian.
 
-Rencana pengembangan selanjutnya: menghubungkan aksi tulis (create/update/
-delete) untuk modul yang saat ini read-only (Servers, Incidents, dsb.).
+Semua halaman dashboard menampilkan data dari API (bukan mockup). Modul yang
+masih read-only (Servers, Incidents, dsb.) tampil dari sumber data nyata;
+aksi tulis (create/update/delete) belum tersedia di backend-nya dan menjadi
+rencana pengembangan berikutnya.
 
 ---
 

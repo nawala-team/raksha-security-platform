@@ -306,4 +306,10 @@ export const api = {
     addIoc: (data: unknown) => apiClient.post("/threat-intel/iocs", data),
     searchIocs: (q: string) => apiClient.post("/threat-intel/iocs/search", { q }),
   },
+  attackSurface: {
+    list: () => apiClient.get("/attack-surface"),
+    summary: () => apiClient.get("/attack-surface/summary"),
+    add: (data: unknown) => apiClient.post("/attack-surface", data),
+    remove: (id: string) => apiClient.delete(`/attack-surface/${id}`),
+  },
 };

@@ -1,5 +1,6 @@
 pub mod alerts;
 pub mod agents;
+pub mod attack_surface;
 pub mod audit;
 pub mod auth;
 pub mod backups;
