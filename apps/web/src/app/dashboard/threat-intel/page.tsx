@@ -1,36 +1,97 @@
 "use client";
 
 import { useState } from "react";
-import { Globe, Shield, RefreshCw } from "lucide-react";
+import { Globe, Shield, RefreshCw, Plus, X, Search } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DataState } from "@/components/ui/data-state";
+import { useApiData } from "@/hooks/use-api-data";
+import { api } from "@/lib/api";
 
-const mockFeeds = [
-  { id: "1", name: "AlienVault OTX", provider: "AT&T", lastSync: "5 min ago", indicators: 45230, status: "active" },
-  { id: "2", name: "Abuse.ch URLhaus", provider: "abuse.ch", lastSync: "12 min ago", indicators: 18920, status: "active" },
-  { id: "3", name: "CISA KEV", provider: "CISA", lastSync: "1 hour ago", indicators: 1124, status: "active" },
-  { id: "4", name: "MITRE ATT&CK", provider: "MITRE", lastSync: "6 hours ago", indicators: 890, status: "active" },
-  { id: "5", name: "NVD", provider: "NIST", lastSync: "2 days ago", indicators: 224500, status: "stale" },
-];
+interface FeedRow {
+  id: string;
+  name: string;
+  enabled: boolean;
+  last_sync: string | null;
+  indicator_count: number;
+  status: string;
+}
 
-const mockIOCs = [
-  { id: "1", type: "ip", value: "45.33.32.156", source: "OTX", severity: "critical", lastSeen: "2026-07-24", tags: ["c2", "cobalt-strike"] },
-  { id: "2", type: "domain", value: "evil-payload.example.net", source: "URLhaus", severity: "high", lastSeen: "2026-07-24", tags: ["malware"] },
-  { id: "3", type: "hash", value: "a1b2c3d4...deadbeef", source: "OTX", severity: "critical", lastSeen: "2026-07-23", tags: ["ransomware"] },
-  { id: "4", type: "ip", value: "198.51.100.23", source: "Abuse.ch", severity: "high", lastSeen: "2026-07-24", tags: ["brute-force"] },
-  { id: "5", type: "url", value: "http://203.0.113.50/payload.exe", source: "URLhaus", severity: "medium", lastSeen: "2026-07-22", tags: ["dropper"] },
-];
+interface IocRow {
+  id: string;
+  ioc_type: string;
+  value: string;
+  source: string;
+  severity: string;
+  confidence: number;
+  tags: string[];
+  first_seen: string;
+  last_seen: string;
+}
 
-const statusColor: Record<string, string> = { active: "text-green-400", stale: "text-yellow-400", error: "text-red-400" };
-const typeColor: Record<string, string> = { ip: "bg-blue-500/20 text-blue-400", domain: "bg-purple-500/20 text-purple-400", hash: "bg-orange-500/20 text-orange-400", url: "bg-cyan-500/20 text-cyan-400" };
+const typeColor: Record<string, string> = {
+  ip: "bg-blue-500/20 text-blue-400",
+  domain: "bg-purple-500/20 text-purple-400",
+  hash: "bg-orange-500/20 text-orange-400",
+  url: "bg-cyan-500/20 text-cyan-400",
+};
 
 export default function ThreatIntelPage() {
+  const { data: feeds, loading: feedLoading, error: feedError, refetch: refetchFeeds } = useApiData<FeedRow[]>(() => api.threatIntel.feeds());
+  const { data: iocs, loading: iocLoading, error: iocError, refetch: refetchIocs } = useApiData<IocRow[]>(() => api.threatIntel.iocs());
+
   const [search, setSearch] = useState("");
-  const filtered = mockIOCs.filter((ioc) =>
-    search ? ioc.value.includes(search) || ioc.tags.some((t) => t.includes(search)) : true
+  const [showAdd, setShowAdd] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [form, setForm] = useState({ ioc_type: "ip", value: "", severity: "medium", tags: "" });
+
+  const feedList = feeds ?? [];
+  const iocList = (iocs ?? []).filter((i) =>
+    search ? i.value.toLowerCase().includes(search.toLowerCase()) || i.ioc_type.toLowerCase().includes(search.toLowerCase()) : true
   );
+
+  const syncFeeds = async () => {
+    setBusy(true);
+    try {
+      await api.threatIntel.syncFeeds();
+      window.alert("Feed sync started");
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addIoc = async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await api.threatIntel.addIoc({
+        ioc_type: form.ioc_type,
+        value: form.value,
+        severity: form.severity,
+        tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
+      });
+      setShowAdd(false);
+      setForm({ ioc_type: "ip", value: "", severity: "medium", tags: "" });
+      refetchIocs();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Failed to add IOC");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -39,89 +100,149 @@ export default function ThreatIntelPage() {
           <h2 className="text-2xl font-bold text-foreground">Threat Intelligence</h2>
           <p className="text-muted-foreground">IOC feeds and threat indicators</p>
         </div>
-        <Button variant="outline" size="sm" className="gap-2">
-          <RefreshCw className="h-4 w-4" /> Sync Feeds
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={syncFeeds} disabled={busy}>
+            <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" /> Sync Feeds
+          </Button>
+          <Button onClick={() => setShowAdd((v) => !v)} className="gap-2">
+            <Plus className="h-4 w-4" aria-hidden="true" /> Add IOC
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {mockFeeds.map((feed) => (
-          <Card key={feed.id} className="border-border">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <Globe className="h-4 w-4 text-primary" />
-                <span className={`text-xs font-medium ${statusColor[feed.status]}`}>
-                  {feed.status}
-                </span>
-              </div>
-              <p className="text-sm font-medium truncate">{feed.name}</p>
-              <p className="text-xs text-muted-foreground">{feed.provider}</p>
-              <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-                <span>{feed.indicators.toLocaleString()} IOCs</span>
-                <span>{feed.lastSync}</span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
+      {/* Feeds */}
       <Card className="border-border">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Shield className="h-5 w-5 text-primary" /> Indicators of Compromise
-            </CardTitle>
-            <Input
-              placeholder="Search IOCs..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-64"
-            />
-          </div>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Globe className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Intelligence Feeds
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left">
-                <th className="pb-2 text-muted-foreground">Type</th>
-                <th className="pb-2 text-muted-foreground">Value</th>
-                <th className="pb-2 text-muted-foreground">Source</th>
-                <th className="pb-2 text-muted-foreground">Severity</th>
-                <th className="pb-2 text-muted-foreground">Tags</th>
-                <th className="pb-2 text-muted-foreground">Last Seen</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.map((ioc) => (
-                <tr key={ioc.id} className="hover:bg-accent/50">
-                  <td className="py-2">
-                    <span className={`px-2 py-0.5 rounded text-xs ${typeColor[ioc.type]}`}>
-                      {ioc.type.toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="py-2 font-mono text-xs">{ioc.value}</td>
-                  <td className="py-2 text-xs text-muted-foreground">{ioc.source}</td>
-                  <td className="py-2">
-                    <Badge variant={ioc.severity === "critical" ? "destructive" : "default"}>
-                      {ioc.severity}
-                    </Badge>
-                  </td>
-                  <td className="py-2">
-                    <div className="flex gap-1">
-                      {ioc.tags.map((t) => (
-                        <span key={t} className="px-1.5 py-0.5 rounded bg-muted text-[10px]">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="py-2 text-xs text-muted-foreground">{ioc.lastSeen}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <CardContent className="p-0">
+          <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-5">
+            {feedList.map((f) => (
+              <div key={f.id} className="rounded-lg border border-border p-3">
+                <p className="text-sm font-medium">{f.name}</p>
+                <p className="text-xs text-muted-foreground mb-2">{f.indicator_count.toLocaleString()} indicators</p>
+                <Badge variant={f.status === "active" ? "default" : "outline"} className="capitalize">{f.status}</Badge>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
+
+      {showAdd && (
+        <Card className="border-border border-primary/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center justify-between text-base">
+              Add Threat Indicator
+              <Button variant="ghost" size="icon" onClick={() => setShowAdd(false)} aria-label="Close">
+                <X className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+              <div className="space-y-2">
+                <Label htmlFor="ioc-type">Type</Label>
+                <Select value={form.ioc_type} onValueChange={(v) => setForm({ ...form, ioc_type: v })}>
+                  <SelectTrigger id="ioc-type" className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ip">IP</SelectItem>
+                    <SelectItem value="domain">Domain</SelectItem>
+                    <SelectItem value="hash">Hash</SelectItem>
+                    <SelectItem value="url">URL</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ioc-value">Value</Label>
+                <Input id="ioc-value" placeholder="45.33.32.156" value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ioc-sev">Severity</Label>
+                <Select value={form.severity} onValueChange={(v) => setForm({ ...form, severity: v })}>
+                  <SelectTrigger id="ioc-sev" className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="critical">Critical</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ioc-tags">Tags (comma-separated)</Label>
+                <Input id="ioc-tags" placeholder="c2, malware" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} />
+              </div>
+            </div>
+            {message && <p className="text-sm text-red-400">{message}</p>}
+            <div className="flex gap-2">
+              <Button onClick={addIoc} size="sm" disabled={busy || !form.value}>
+                {busy ? "Adding..." : "Add IOC"}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowAdd(false)}>Cancel</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Search + IOC list */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Input placeholder="Search indicators..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      </div>
+
+      <DataState
+        loading={iocLoading}
+        error={iocError}
+        isEmpty={iocList.length === 0}
+        onRetry={refetchIocs}
+        loadingLabel="Loading indicators"
+        emptyTitle="No indicators"
+        emptyDescription="Add threat indicators to start tracking them."
+      >
+        <Card className="border-border">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/30 text-left">
+                    <th className="px-4 py-3 font-medium text-muted-foreground">Value</th>
+                    <th className="px-4 py-3 font-medium text-muted-foreground">Type</th>
+                    <th className="px-4 py-3 font-medium text-muted-foreground">Severity</th>
+                    <th className="px-4 py-3 font-medium text-muted-foreground">Source</th>
+                    <th className="px-4 py-3 font-medium text-muted-foreground">Last Seen</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {iocList.map((ioc) => (
+                    <tr key={ioc.id} className="hover:bg-accent/50">
+                      <td className="px-4 py-3">
+                        <div className="font-mono text-xs">{ioc.value}</div>
+                        {ioc.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {ioc.tags.map((t) => (
+                              <span key={t} className="text-[10px] rounded bg-muted px-1.5 py-0.5 text-muted-foreground">{t}</span>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-block rounded px-2 py-0.5 text-xs ${typeColor[ioc.ioc_type] ?? "bg-muted text-muted-foreground"}`}>{ioc.ioc_type}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant={ioc.severity as "critical" | "high" | "medium" | "low"} className="capitalize">{ioc.severity}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{ioc.source}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(ioc.last_seen).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </DataState>
     </div>
   );
 }

@@ -269,6 +269,9 @@ export const api = {
   databases: {
     list: () => apiClient.get("/databases"),
     get: (id: string) => apiClient.get(`/databases/${id}`),
+    register: (data: unknown) => apiClient.post("/databases", data),
+    unregister: (id: string) => apiClient.delete(`/databases/${id}`),
+    metrics: (id: string) => apiClient.get(`/databases/${id}/metrics`),
   },
   compliance: {
     scores: () => apiClient.get("/compliance/scores"),
@@ -295,5 +298,12 @@ export const api = {
     systemCheck: () => apiClient.get("/setup/system-check"),
     configure: (config: unknown) => apiClient.post("/setup/configure", config),
     status: () => apiClient.get("/setup/status"),
+  },
+  threatIntel: {
+    feeds: () => apiClient.get("/threat-intel/feeds"),
+    syncFeeds: () => apiClient.post("/threat-intel/feeds/sync"),
+    iocs: () => apiClient.get("/threat-intel/iocs"),
+    addIoc: (data: unknown) => apiClient.post("/threat-intel/iocs", data),
+    searchIocs: (q: string) => apiClient.post("/threat-intel/iocs/search", { q }),
   },
 };

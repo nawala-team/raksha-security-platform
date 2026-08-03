@@ -1,5 +1,10 @@
-use axum::{extract::State, routing, Json, Router};
+use axum::{extract::State, Extension, Json, Router, routing};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+use raksha_auth::Claims;
+use raksha_core::models::new_id;
 
 use crate::state::AppState;
 
@@ -56,29 +61,151 @@ async fn list_feeds(State(_state): State<AppState>) -> Json<Vec<FeedStatus>> {
 }
 
 async fn sync_feeds(State(_state): State<AppState>) -> Json<serde_json::Value> {
-    // In production this triggers async feed sync jobs
     Json(serde_json::json!({
         "status": "sync_started",
         "message": "All feeds queued for synchronization"
     }))
 }
 
-async fn list_iocs(State(_state): State<AppState>) -> Json<Vec<IOCResponse>> {
-    // Placeholder — in production reads from Redis/PostgreSQL
-    Json(vec![])
+#[derive(Debug, sqlx::FromRow)]
+struct IocRow {
+    id: String,
+    indicator_type: Option<String>,
+    value: String,
+    source: Option<String>,
+    severity: Option<String>,
+    confidence: Option<i16>,
+    tags: Option<Vec<String>>,
+    first_seen_at: Option<DateTime<Utc>>,
+    last_seen_at: Option<DateTime<Utc>>,
+    created_at: DateTime<Utc>,
+}
+
+fn to_response(r: IocRow) -> IOCResponse {
+    IOCResponse {
+        id: r.id,
+        ioc_type: r.indicator_type.unwrap_or_else(|| "unknown".into()),
+        value: r.value,
+        source: r.source.unwrap_or_else(|| "manual".into()),
+        severity: r.severity.unwrap_or_else(|| "low".into()),
+        confidence: r.confidence.map(|c| c as f64).unwrap_or(0.0),
+        tags: r.tags.unwrap_or_default(),
+        first_seen: r.first_seen_at.unwrap_or_else(Utc::now).to_rfc3339(),
+        last_seen: r
+            .last_seen_at
+            .unwrap_or_else(Utc::now)
+            .to_rfc3339(),
+    }
+}
+
+async fn list_iocs(
+    State(state): State<AppState>,
+    Extension(_claims): Extension<Claims>,
+) -> Json<Vec<IOCResponse>> {
+    let rows: Vec<IocRow> = sqlx::query_as(
+        r#"
+        SELECT id::text as id,
+               indicator_type,
+               value,
+               COALESCE(source_ref, 'manual') as source,
+               severity,
+               confidence,
+               tags,
+               first_seen_at,
+               last_seen_at,
+               created_at
+        FROM threat_indicators
+        WHERE is_active = true
+        ORDER BY created_at DESC
+        LIMIT 100
+        "#,
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    Json(rows.into_iter().map(to_response).collect())
 }
 
 async fn add_ioc(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
+    Extension(_claims): Extension<Claims>,
     Json(payload): Json<AddIOCRequest>,
 ) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "status": "created",
-        "ioc_type": payload.ioc_type,
-        "value": payload.value,
-    }))
+    // Map friendly UI types to the DB check-constraint enum values.
+    let indicator_type = match payload.ioc_type.as_str() {
+        "ip" => "ip_v4",
+        "hash" => "file_hash_sha256",
+        other => other,
+    }
+    .to_string();
+
+    let id = new_id();
+    let now = Utc::now();
+    let result = sqlx::query!(
+        r#"
+        INSERT INTO threat_indicators
+            (id, indicator_type, value, value_normalized, severity, confidence,
+             tags, first_seen_at, last_seen_at, created_at, updated_at)
+        VALUES ($1, $2, $3, lower($3), $4, 100, $5, $6, $6, $6, $6)
+        "#,
+        id,
+        indicator_type,
+        payload.value,
+        payload.severity,
+        &payload.tags,
+        now,
+    )
+    .execute(&state.db)
+    .await;
+
+    match result {
+        Ok(_) => Json(serde_json::json!({
+            "status": "created",
+            "ioc_type": payload.ioc_type,
+            "value": payload.value,
+            "id": id,
+        })),
+        Err(e) => Json(serde_json::json!({
+            "status": "error",
+            "message": e.to_string(),
+        })),
+    }
 }
 
-async fn search_iocs(State(_state): State<AppState>) -> Json<Vec<IOCResponse>> {
-    Json(vec![])
+async fn search_iocs(
+    State(state): State<AppState>,
+    Extension(_claims): Extension<Claims>,
+    Json(query): Json<serde_json::Value>,
+) -> Json<Vec<IOCResponse>> {
+    let term = query
+        .get("q")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let rows: Vec<IocRow> = sqlx::query_as(
+        r#"
+        SELECT id::text as id,
+               indicator_type,
+               value,
+               COALESCE(source_ref, 'manual') as source,
+               severity,
+               confidence,
+               tags,
+               first_seen_at,
+               last_seen_at,
+               created_at
+        FROM threat_indicators
+        WHERE is_active = true
+          AND ($1 = '' OR value ILIKE '%' || $1 || '%' OR indicator_type ILIKE '%' || $1 || '%')
+        ORDER BY created_at DESC
+        LIMIT 50
+        "#,
+    )
+    .bind(term)
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    Json(rows.into_iter().map(to_response).collect())
 }

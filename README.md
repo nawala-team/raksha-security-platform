@@ -99,16 +99,15 @@ Part of the [Nawala Ecosystem](https://github.com/dansiapa/nawala-gateway-platfo
 | Tenants (list, create, rename, suspend) | ✅ | ✅ |
 | Compliance (list standards/controls/scores) | ✅ | ⏳ (read) |
 | FIM (list events, summary, export CSV) | ✅ | ⏳ (read + export) |
+| Databases (list, register, get, remove, metrics) | ✅ | ✅ |
+| Threat Intel (feeds, IOCs, add IOC, search) | ✅ | ✅ |
 | Servers, Network, Containers, Honeypots, Dark Web, Hunting, Backups, Documents, Incidents, GRC, Vulnerabilities | ✅ | ⏳ (read-only) |
-| Threat Intel (feeds) | ⏳ (hardcoded) | ⏳ |
-| Database Monitor | ⏳ (backend stub) | ⏳ |
 | Audit, Attack Surface, Settings | ⏳ | ⏳ |
 
 **Legenda:** ✅ = berfungsi penuh · ⏳ = data tampil / sebagian.
 
-Rencana pengembangan selanjutnya: melengkapi backend penyimpanan untuk
-Database Monitor & Threat Intel, lalu menghubungkan aksi tulis (create/update/
-delete) untuk modul yang saat ini read-only.
+Rencana pengembangan selanjutnya: menghubungkan aksi tulis (create/update/
+delete) untuk modul yang saat ini read-only (Servers, Incidents, dsb.).
 
 ---
 
