@@ -7,6 +7,8 @@ const nextConfig = {
   experimental: {
     useWasmBinary: true,
   },
+  // Allow access from these origins in dev mode
+  allowedDevOrigins: ['127.0.0.1', 'localhost', '192.168.1.9'],
   async rewrites() {
     // For local dev use localhost, for Docker use portal hostname
     const portalUrl = process.env.PORTAL_API_URL || 'http://127.0.0.1:8080';

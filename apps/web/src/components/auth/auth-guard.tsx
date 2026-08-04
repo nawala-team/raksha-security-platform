@@ -7,28 +7,21 @@ import { isAuthenticated, clearStoredToken } from "@/lib/auth";
 
 /**
  * Client-side route guard for the dashboard.
- *
- * Tokens live in localStorage (not cookies), so Next.js middleware running on
- * the server cannot see them. The check therefore has to happen here, after
- * hydration. Children are never rendered until the session is confirmed, so
- * authenticated markup is not briefly exposed.
- *
- * Note this is a UX guard only: every protected endpoint is independently
- * enforced by the portal's `auth_layer`, which is the real security boundary.
+ * Redirects to login if not authenticated.
  */
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [status, setStatus] = useState<"checking" | "allowed">("checking");
 
   useEffect(() => {
+    // Check authentication status
     if (isAuthenticated()) {
       setStatus("allowed");
-      return;
+    } else {
+      // Clear any expired/invalid token and redirect to login
+      clearStoredToken();
+      router.replace("/login");
     }
-
-    // Drop an expired or malformed token so /login starts from a clean slate.
-    clearStoredToken();
-    router.replace("/login");
   }, [router]);
 
   if (status === "checking") {

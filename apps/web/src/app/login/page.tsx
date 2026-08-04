@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Shield, Lock, KeyRound, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api, apiClient } from "@/lib/api";
+import { isAuthenticated } from "@/lib/auth";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -21,6 +22,16 @@ export default function LoginPage() {
   const [showMfa, setShowMfa] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // Check if already authenticated on mount
+  useEffect(() => {
+    if (isAuthenticated()) {
+      window.location.href = "/dashboard";
+    } else {
+      setCheckingAuth(false);
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,8 +49,12 @@ export default function LoginPage() {
       const response = await api.auth.login({ email, password });
       
       // Store token in localStorage and API client
-      localStorage.setItem("raksha_auth_token", JSON.stringify(response.tokens));
-      apiClient.setToken(response.tokens.access_token);
+      const tokenData = response.tokens;
+      localStorage.setItem("raksha_auth_token", JSON.stringify(tokenData));
+      apiClient.setToken(tokenData.access_token);
+      
+      // Small delay to ensure storage is committed before redirect
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Redirect to dashboard
       window.location.href = "/dashboard";
@@ -48,6 +63,15 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+
+  // Show loading while checking authentication
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
