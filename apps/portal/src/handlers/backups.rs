@@ -2,23 +2,24 @@
 
 use axum::{
     extract::{Path, Query, State},
-    routing::get,
+    routing::{delete, get, patch, post},
     Json, Router,
 };
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use raksha_auth::Claims;
 use raksha_core::error::{AppError, AppResult};
-use raksha_core::models::{Pagination, PaginatedResponse, PaginationMeta};
+use raksha_core::models::{new_id, Pagination, PaginatedResponse, PaginationMeta, UserRole};
 
 use crate::state::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/jobs", get(list_jobs))
-        .route("/jobs/:id", get(get_job))
+        .route("/jobs", get(list_jobs).post(create_job))
+        .route("/jobs/:id", get(get_job).delete(remove_job))
+        .route("/jobs/:id/status", patch(toggle_job))
         .route("/jobs/:id/runs", get(list_job_runs))
         .route("/runs", get(list_runs))
         .route("/summary", get(backup_summary))
@@ -226,5 +227,149 @@ async fn backup_summary(
         total_backup_bytes: runs.total_bytes,
         unverified_runs: runs.unverified,
     }))
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateJobRequest {
+    name: String,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default = "default_type")]
+    backup_type: String,
+    #[serde(default = "default_target_kind")]
+    target_kind: String,
+    #[serde(default = "default_source_ref")]
+    source_ref: String,
+    #[serde(default = "default_dest")]
+    destination: String,
+    #[serde(default = "default_retention")]
+    retention_days: i32,
+    #[serde(default = "default_true")]
+    encryption_enabled: bool,
+    #[serde(default = "default_true")]
+    verify_after_backup: bool,
+    #[serde(default)]
+    is_enabled: bool,
+}
+
+fn default_type() -> String {
+    "full".to_string()
+}
+fn default_target_kind() -> String {
+    "database".to_string()
+}
+fn default_source_ref() -> String {
+    "/data".to_string()
+}
+fn default_dest() -> String {
+    "local".to_string()
+}
+fn default_retention() -> i32 {
+    30
+}
+fn default_true() -> bool {
+    true
+}
+
+async fn create_job(
+    State(state): State<AppState>,
+    axum::Extension(claims): axum::Extension<Claims>,
+    Json(payload): Json<CreateJobRequest>,
+) -> AppResult<Json<BackupJobResponse>> {
+    if !claims.role.has_permission(&UserRole::Operator) {
+        return Err(AppError::Forbidden(
+            "Operator access required to create backup jobs".to_string(),
+        ));
+    }
+    if payload.name.trim().is_empty() {
+        return Err(AppError::Validation("Backup job name is required".to_string()));
+    }
+
+    let id = new_id();
+    // Use the default tenant for now; multi-tenancy can derive this from claims later.
+    let tenant_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+    let job = sqlx::query_as!(
+        BackupJobResponse,
+        r#"
+        INSERT INTO backup_jobs
+            (id, tenant_id, name, description, backup_type, target_kind, source_ref, destination,
+             is_enabled, retention_days, encryption_enabled, verify_after_backup,
+             success_count, failure_count, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 0, 0, NOW(), NOW())
+        RETURNING id, name, description, backup_type, target_kind, source_ref,
+                  destination, destination_path, server_id, is_enabled,
+                  schedule_interval_mins, retention_days, encryption_enabled,
+                  encryption_algo, verify_after_backup, last_status, last_run_at,
+                  next_run_at, last_size_bytes, success_count, failure_count, created_at
+        "#,
+        id,
+        tenant_id,
+        payload.name,
+        payload.description,
+        payload.backup_type,
+        payload.target_kind,
+        payload.source_ref,
+        payload.destination,
+        payload.is_enabled,
+        payload.retention_days,
+        payload.encryption_enabled,
+        payload.verify_after_backup,
+    )
+    .fetch_one(&state.db)
+    .await?;
+
+    Ok(Json(job))
+}
+
+async fn toggle_job(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    axum::Extension(claims): axum::Extension<Claims>,
+    Json(payload): Json<serde_json::Value>,
+) -> AppResult<Json<BackupJobResponse>> {
+    if !claims.role.has_permission(&UserRole::Operator) {
+        return Err(AppError::Forbidden(
+            "Operator access required to update backup jobs".to_string(),
+        ));
+    }
+    let enabled = payload.get("is_enabled").and_then(|v| v.as_bool()).unwrap_or(true);
+    let job = sqlx::query_as!(
+        BackupJobResponse,
+        r#"
+        UPDATE backup_jobs SET is_enabled = $2, updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, name, description, backup_type, target_kind, source_ref,
+                  destination, destination_path, server_id, is_enabled,
+                  schedule_interval_mins, retention_days, encryption_enabled,
+                  encryption_algo, verify_after_backup, last_status, last_run_at,
+                  next_run_at, last_size_bytes, success_count, failure_count, created_at
+        "#,
+        id,
+        enabled,
+    )
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or(AppError::NotFound("Backup job not found".to_string()))?;
+
+    Ok(Json(job))
+}
+
+async fn remove_job(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    axum::Extension(claims): axum::Extension<Claims>,
+) -> AppResult<Json<serde_json::Value>> {
+    if !claims.role.has_permission(&UserRole::Admin) {
+        return Err(AppError::Forbidden(
+            "Admin access required to delete backup jobs".to_string(),
+        ));
+    }
+    let result = sqlx::query!("DELETE FROM backup_jobs WHERE id = $1", id)
+        .execute(&state.db)
+        .await?;
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound("Backup job not found".to_string()));
+    }
+    Ok(Json(serde_json::json!({ "deleted": true, "id": id })))
 }
 

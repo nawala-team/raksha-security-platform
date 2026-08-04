@@ -166,6 +166,8 @@ export const api = {
       return apiClient.get(`/network/events${query}`);
     },
     rules: () => apiClient.get("/network/rules"),
+    createRule: (data: unknown) => apiClient.post("/network/rules", data),
+    removeRule: (id: string) => apiClient.delete(`/network/rules/${id}`),
     summary: () => apiClient.get("/network/summary"),
     topTalkers: () => apiClient.get("/network/top-talkers"),
   },
@@ -199,6 +201,8 @@ export const api = {
   hunting: {
     queries: () => apiClient.get("/hunting/queries"),
     query: (id: string) => apiClient.get(`/hunting/queries/${id}`),
+    createQuery: (data: unknown) => apiClient.post("/hunting/queries", data),
+    removeQuery: (id: string) => apiClient.delete(`/hunting/queries/${id}`),
     queryRuns: (id: string) => apiClient.get(`/hunting/queries/${id}/runs`),
     runs: (params?: Record<string, string>) => {
       const query = params ? `?${new URLSearchParams(params)}` : "";
@@ -209,6 +213,10 @@ export const api = {
   backups: {
     jobs: () => apiClient.get("/backups/jobs"),
     job: (id: string) => apiClient.get(`/backups/jobs/${id}`),
+    createJob: (data: unknown) => apiClient.post("/backups/jobs", data),
+    toggleJob: (id: string, is_enabled: boolean) =>
+      apiClient.patch(`/backups/jobs/${id}/status`, { is_enabled }),
+    removeJob: (id: string) => apiClient.delete(`/backups/jobs/${id}`),
     jobRuns: (id: string) => apiClient.get(`/backups/jobs/${id}/runs`),
     runs: (params?: Record<string, string>) => {
       const query = params ? `?${new URLSearchParams(params)}` : "";
@@ -222,6 +230,8 @@ export const api = {
       return apiClient.get(`/documents${query}`);
     },
     get: (id: string) => apiClient.get(`/documents/${id}`),
+    create: (data: unknown) => apiClient.post("/documents", data),
+    remove: (id: string) => apiClient.delete(`/documents/${id}`),
     summary: () => apiClient.get("/documents/summary"),
     expiring: () => apiClient.get("/documents/expiring"),
   },
@@ -241,6 +251,8 @@ export const api = {
   grc: {
     risks: () => apiClient.get("/grc/risks"),
     risk: (id: string) => apiClient.get(`/grc/risks/${id}`),
+    createRisk: (data: unknown) => apiClient.post("/grc/risks", data),
+    removeRisk: (id: string) => apiClient.delete(`/grc/risks/${id}`),
     policies: () => apiClient.get("/grc/policies"),
     controls: () => apiClient.get("/grc/controls"),
     summary: () => apiClient.get("/grc/summary"),

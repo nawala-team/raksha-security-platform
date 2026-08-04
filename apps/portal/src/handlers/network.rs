@@ -1,24 +1,25 @@
 //! Network monitoring endpoints: traffic events and firewall rules.
 
 use axum::{
-    extract::{Query, State},
-    routing::get,
+    extract::{Path, Query, State},
+    routing::{delete, get, post},
     Json, Router,
 };
 use chrono::{DateTime, Duration, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use raksha_auth::Claims;
-use raksha_core::error::AppResult;
-use raksha_core::models::{Pagination, PaginatedResponse, PaginationMeta};
+use raksha_core::error::{AppError, AppResult};
+use raksha_core::models::{new_id, Pagination, PaginatedResponse, PaginationMeta, UserRole};
 
 use crate::state::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/events", get(list_events))
-        .route("/rules", get(list_rules))
+        .route("/rules", get(list_rules).post(create_rule))
+        .route("/rules/:id", delete(remove_rule))
         .route("/summary", get(network_summary))
         .route("/top-talkers", get(top_talkers))
 }
@@ -206,4 +207,99 @@ async fn top_talkers(
     .await?;
 
     Ok(Json(rows))
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateRuleRequest {
+    name: String,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default = "default_direction")]
+    direction: String,
+    #[serde(default = "default_action")]
+    action: String,
+    #[serde(default)]
+    protocol: Option<String>,
+    #[serde(default)]
+    source_cidr: Option<String>,
+    #[serde(default)]
+    dest_cidr: Option<String>,
+    #[serde(default)]
+    port_range: Option<String>,
+    #[serde(default = "default_priority")]
+    priority: i32,
+}
+
+fn default_direction() -> String {
+    "inbound".to_string()
+}
+fn default_action() -> String {
+    "block".to_string()
+}
+fn default_priority() -> i32 {
+    100
+}
+
+async fn create_rule(
+    State(state): State<AppState>,
+    axum::Extension(claims): axum::Extension<Claims>,
+    Json(payload): Json<CreateRuleRequest>,
+) -> AppResult<Json<NetworkRuleResponse>> {
+    if !claims.role.has_permission(&UserRole::Operator) {
+        return Err(AppError::Forbidden(
+            "Operator access required to create network rules".to_string(),
+        ));
+    }
+    if payload.name.trim().is_empty() {
+        return Err(AppError::Validation("Rule name is required".to_string()));
+    }
+
+    let id = new_id();
+    let tenant_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+
+    let rule = sqlx::query_as!(
+        NetworkRuleResponse,
+        r#"
+        INSERT INTO network_rules
+            (id, tenant_id, name, description, is_enabled, priority, direction, action,
+             protocol, source_cidr, dest_cidr, port_range, hit_count, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, true, $5, $6, $7, $8, $9, $10, $11, 0, NOW(), NOW())
+        RETURNING id, name, description, is_enabled, priority, direction, action,
+                  protocol, source_cidr, dest_cidr, port_range, hit_count, last_hit_at, created_at
+        "#,
+        id,
+        tenant_id,
+        payload.name,
+        payload.description,
+        payload.priority,
+        payload.direction,
+        payload.action,
+        payload.protocol,
+        payload.source_cidr,
+        payload.dest_cidr,
+        payload.port_range,
+    )
+    .fetch_one(&state.db)
+    .await?;
+
+    Ok(Json(rule))
+}
+
+async fn remove_rule(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    axum::Extension(claims): axum::Extension<Claims>,
+) -> AppResult<Json<serde_json::Value>> {
+    if !claims.role.has_permission(&UserRole::Admin) {
+        return Err(AppError::Forbidden(
+            "Admin access required to delete network rules".to_string(),
+        ));
+    }
+    let result = sqlx::query!("DELETE FROM network_rules WHERE id = $1", id)
+        .execute(&state.db)
+        .await?;
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound("Network rule not found".to_string()));
+    }
+    Ok(Json(serde_json::json!({ "deleted": true, "id": id })))
 }

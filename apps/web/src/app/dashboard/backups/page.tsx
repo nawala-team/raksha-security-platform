@@ -1,13 +1,17 @@
 "use client";
 
+import { useState } from "react";
+
 import {
-  HardDrive, CheckCircle2, AlertTriangle, XCircle, Shield, RefreshCw, Database,
+  HardDrive, CheckCircle2, AlertTriangle, XCircle, Shield, RefreshCw, Database, X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { DataState } from "@/components/ui/data-state";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useApiData, useApiList } from "@/hooks/use-api-data";
 import { api } from "@/lib/api";
 import { formatBytes, formatNumber, relativeTime } from "@/lib/utils";
@@ -140,6 +144,50 @@ export default function BackupsPage() {
 
   const refreshing = summary.loading || jobs.loading || runs.loading;
 
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: "", description: "", retentionDays: "30" });
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const createJob = async () => {
+    if (!createForm.name.trim()) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await api.backups.createJob({
+        name: createForm.name,
+        description: createForm.description || undefined,
+        retention_days: Number(createForm.retentionDays) || 30,
+      });
+      setShowCreate(false);
+      setCreateForm({ name: "", description: "", retentionDays: "30" });
+      refreshAll();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to create backup job");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleJob = async (job: BackupJob) => {
+    try {
+      await api.backups.toggleJob(job.id, !job.is_enabled);
+      jobs.refetch();
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Failed to update job");
+    }
+  };
+
+  const removeJob = async (job: BackupJob) => {
+    if (!window.confirm(`Delete backup job "${job.name}"?`)) return;
+    try {
+      await api.backups.removeJob(job.id);
+      refreshAll();
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Failed to delete job");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -154,6 +202,9 @@ export default function BackupsPage() {
           <Button onClick={refreshAll} disabled={refreshing} className="gap-2">
             <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} aria-hidden="true" />
             {refreshing ? "Refreshing..." : "Refresh"}
+          </Button>
+          <Button onClick={() => setShowCreate((v) => !v)} className="gap-2">
+            <Database className="h-4 w-4" aria-hidden="true" /> Add Job
           </Button>
         </div>
       </div>
@@ -253,6 +304,7 @@ export default function BackupsPage() {
                     <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Last Run</th>
                     <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Last Size</th>
                     <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -297,6 +349,16 @@ export default function BackupsPage() {
                             <Badge variant="secondary" className="mt-1 text-xs">paused</Badge>
                           )}
                         </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => toggleJob(job)} aria-label={job.is_enabled ? `Pause ${job.name}` : `Resume ${job.name}`}>
+                              {job.is_enabled ? "Pause" : "Resume"}
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => removeJob(job)} className="text-red-400 hover:text-red-300" aria-label={`Delete ${job.name}`}>
+                              Delete
+                            </Button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
@@ -309,6 +371,39 @@ export default function BackupsPage() {
 
       </div>
 
+
+      {/* Create Job Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="create-job-title">
+          <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 id="create-job-title" className="text-lg font-semibold text-foreground">Add Backup Job</h3>
+              <Button variant="ghost" size="icon" onClick={() => setShowCreate(false)} aria-label="Close modal"><X className="h-4 w-4" aria-hidden="true" /></Button>
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <Label htmlFor="job-name">Name</Label>
+                <Input id="job-name" placeholder="Daily database backup" value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="job-desc">Description</Label>
+                <Input id="job-desc" placeholder="Optional description" value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="job-retention">Retention (days)</Label>
+                <Input id="job-retention" type="number" min={1} value={createForm.retentionDays} onChange={(e) => setCreateForm({ ...createForm, retentionDays: e.target.value })} />
+              </div>
+              {saveError && <p className="text-sm text-destructive">{saveError}</p>}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
+                <Button onClick={createJob} disabled={saving || !createForm.name.trim()}>
+                  {saving ? "Creating..." : "Create Job"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recent Runs */}
       <Card className="border-border">

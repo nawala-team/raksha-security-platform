@@ -1,12 +1,16 @@
 "use client";
 
+import { useState } from "react";
+
 import {
-  FileText, Plus, CheckCircle2, PencilLine, Eye, CalendarClock,
+  FileText, Plus, CheckCircle2, PencilLine, Eye, CalendarClock, X, Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/ui/data-state";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useApiData, useApiList } from "@/hooks/use-api-data";
 import { api } from "@/lib/api";
 import { formatBytes, formatNumber, relativeTime } from "@/lib/utils";
@@ -90,6 +94,47 @@ export default function DocumentsPage() {
 
   const expiringDocs = expiring.data ?? [];
 
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ title: "", description: "", doc_type: "policy" });
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const refreshAll = () => {
+    summary.refetch();
+    documents.refetch();
+    expiring.refetch();
+  };
+
+  const createDocument = async () => {
+    if (!createForm.title.trim()) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await api.documents.create({
+        title: createForm.title,
+        description: createForm.description || undefined,
+        doc_type: createForm.doc_type,
+      });
+      setShowCreate(false);
+      setCreateForm({ title: "", description: "", doc_type: "policy" });
+      refreshAll();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to create document");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeDocument = async (doc: DocumentRecord) => {
+    if (!window.confirm(`Delete document "${doc.title}"?`)) return;
+    try {
+      await api.documents.remove(doc.id);
+      refreshAll();
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Failed to delete document");
+    }
+  };
+
   const stats = [
     {
       label: "Total Documents",
@@ -140,7 +185,7 @@ export default function DocumentsPage() {
           <Badge variant="outline" className="text-sm">
             {formatBytes(summary.data?.total_size_bytes)} stored
           </Badge>
-          <Button><Plus className="h-4 w-4 mr-2" aria-hidden="true" />New Document</Button>
+          <Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4 mr-2" aria-hidden="true" />New Document</Button>
         </div>
       </div>
 
@@ -259,6 +304,7 @@ export default function DocumentsPage() {
                     <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Size</th>
                     <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Expires</th>
                     <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Updated</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -294,6 +340,11 @@ export default function DocumentsPage() {
                       <td className="px-4 py-3 text-muted-foreground">{formatBytes(doc.size_bytes)}</td>
                       <td className="px-4 py-3 text-muted-foreground">{formatDate(doc.expires_at)}</td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{relativeTime(doc.updated_at)}</td>
+                      <td className="px-4 py-3">
+                        <Button variant="ghost" size="sm" onClick={() => removeDocument(doc)} className="text-red-400 hover:text-red-300" aria-label={`Delete ${doc.title}`}>
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -302,6 +353,45 @@ export default function DocumentsPage() {
           </DataState>
         </CardContent>
       </Card>
+
+      {/* Create Document Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="create-doc-title">
+          <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 id="create-doc-title" className="text-lg font-semibold text-foreground">New Document</h3>
+              <Button variant="ghost" size="icon" onClick={() => setShowCreate(false)} aria-label="Close modal"><X className="h-4 w-4" aria-hidden="true" /></Button>
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <Label htmlFor="doc-title">Title</Label>
+                <Input id="doc-title" placeholder="Security Policy v2" value={createForm.title} onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="doc-desc">Description</Label>
+                <Input id="doc-desc" placeholder="Optional description" value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="doc-type">Type</Label>
+                <select id="doc-type" className="w-full rounded border border-border bg-background px-3 py-2 text-sm" value={createForm.doc_type} onChange={(e) => setCreateForm({ ...createForm, doc_type: e.target.value })}>
+                  <option value="policy">Policy</option>
+                  <option value="procedure">Procedure</option>
+                  <option value="runbook">Runbook</option>
+                  <option value="standard">Standard</option>
+                  <option value="evidence">Evidence</option>
+                </select>
+              </div>
+              {saveError && <p className="text-sm text-destructive">{saveError}</p>}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
+                <Button onClick={createDocument} disabled={saving || !createForm.title.trim()}>
+                  {saving ? "Creating..." : "Create Document"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

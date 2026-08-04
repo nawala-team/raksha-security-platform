@@ -7,7 +7,7 @@
 
 use axum::{
     extract::{Path, Query, State},
-    routing::{get, post},
+    routing::{delete, get, post},
     Json, Router,
 };
 use chrono::{DateTime, Utc};
@@ -17,14 +17,14 @@ use uuid::Uuid;
 use raksha_auth::Claims;
 use raksha_core::error::{AppError, AppResult};
 use raksha_core::hunting::Parser;
-use raksha_core::models::{Pagination, PaginatedResponse, PaginationMeta};
+use raksha_core::models::{new_id, Pagination, PaginatedResponse, PaginationMeta, UserRole};
 
 use crate::state::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/queries", get(list_queries))
-        .route("/queries/:id", get(get_query))
+        .route("/queries", get(list_queries).post(create_query))
+        .route("/queries/:id", get(get_query).delete(remove_query))
         .route("/queries/:id/runs", get(list_query_runs))
         .route("/runs", get(list_runs))
         .route("/validate", post(validate_rql))
@@ -206,4 +206,82 @@ async fn validate_rql(
             limit: None,
         })),
     }
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateQueryRequest {
+    name: String,
+    #[serde(default)]
+    description: Option<String>,
+    rql: String,
+    #[serde(default = "default_source")]
+    query_source: String,
+}
+
+fn default_source() -> String {
+    "events".to_string()
+}
+
+async fn create_query(
+    State(state): State<AppState>,
+    axum::Extension(claims): axum::Extension<Claims>,
+    Json(payload): Json<CreateQueryRequest>,
+) -> AppResult<Json<HuntingQueryResponse>> {
+    if !claims.role.has_permission(&UserRole::Operator) {
+        return Err(AppError::Forbidden(
+            "Operator access required to create hunting queries".to_string(),
+        ));
+    }
+    if payload.name.trim().is_empty() {
+        return Err(AppError::Validation("Query name is required".to_string()));
+    }
+    if payload.rql.trim().is_empty() {
+        return Err(AppError::Validation("RQL query is required".to_string()));
+    }
+
+    let id = new_id();
+    let tenant_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+
+    let query = sqlx::query_as!(
+        HuntingQueryResponse,
+        r#"
+        INSERT INTO hunting_queries
+            (id, tenant_id, name, description, rql, query_source, is_scheduled,
+             alert_on_hits, alert_threshold, alert_severity, run_count, created_by, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, false, false, 1, 'medium', 0, $7, NOW(), NOW())
+        RETURNING id, name, description, rql, query_source, is_scheduled,
+                  schedule_interval_mins, alert_on_hits, alert_threshold, alert_severity,
+                  last_run_at, next_run_at, last_hit_count, run_count, created_at
+        "#,
+        id,
+        tenant_id,
+        payload.name,
+        payload.description,
+        payload.rql,
+        payload.query_source,
+        claims.sub,
+    )
+    .fetch_one(&state.db)
+    .await?;
+
+    Ok(Json(query))
+}
+
+async fn remove_query(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    axum::Extension(claims): axum::Extension<Claims>,
+) -> AppResult<Json<serde_json::Value>> {
+    if !claims.role.has_permission(&UserRole::Admin) {
+        return Err(AppError::Forbidden(
+            "Admin access required to delete hunting queries".to_string(),
+        ));
+    }
+    let result = sqlx::query!("DELETE FROM hunting_queries WHERE id = $1", id)
+        .execute(&state.db)
+        .await?;
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound("Hunting query not found".to_string()));
+    }
+    Ok(Json(serde_json::json!({ "deleted": true, "id": id })))
 }

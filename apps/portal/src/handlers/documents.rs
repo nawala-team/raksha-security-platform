@@ -4,25 +4,25 @@
 
 use axum::{
     extract::{Path, Query, State},
-    routing::get,
+    routing::{delete, get, post},
     Json, Router,
 };
 use chrono::{DateTime, NaiveDate, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use raksha_auth::Claims;
 use raksha_core::error::{AppError, AppResult};
-use raksha_core::models::{Pagination, PaginatedResponse, PaginationMeta};
+use raksha_core::models::{new_id, Pagination, PaginatedResponse, PaginationMeta, UserRole};
 
 use crate::state::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/", get(list_documents))
+        .route("/", get(list_documents).post(create_document))
         .route("/summary", get(document_summary))
         .route("/expiring", get(list_expiring))
-        .route("/:id", get(get_document))
+        .route("/:id", get(get_document).delete(remove_document))
 }
 
 #[derive(Debug, Serialize)]
@@ -190,4 +190,92 @@ async fn document_summary(
         expiring_soon: row.expiring,
         total_size_bytes: row.size,
     }))
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateDocumentRequest {
+    title: String,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default = "default_doc_type")]
+    doc_type: String,
+    #[serde(default)]
+    category: Option<String>,
+    #[serde(default = "default_classification")]
+    classification: String,
+    #[serde(default = "default_version")]
+    version: String,
+}
+
+fn default_doc_type() -> String {
+    "policy".to_string()
+}
+fn default_classification() -> String {
+    "internal".to_string()
+}
+fn default_version() -> String {
+    "1.0".to_string()
+}
+
+async fn create_document(
+    State(state): State<AppState>,
+    axum::Extension(claims): axum::Extension<Claims>,
+    Json(payload): Json<CreateDocumentRequest>,
+) -> AppResult<Json<DocumentResponse>> {
+    if !claims.role.has_permission(&UserRole::Operator) {
+        return Err(AppError::Forbidden(
+            "Operator access required to create documents".to_string(),
+        ));
+    }
+    if payload.title.trim().is_empty() {
+        return Err(AppError::Validation("Document title is required".to_string()));
+    }
+
+    let id = new_id();
+    let tenant_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+
+    let doc = sqlx::query_as!(
+        DocumentResponse,
+        r#"
+        INSERT INTO documents
+            (id, tenant_id, title, description, doc_type, category, status, classification, version,
+             tags, metadata, download_count, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, 'draft', $7, $8, '[]', '{}', 0, NOW(), NOW())
+        RETURNING id, title, description, doc_type, category, status, classification, version,
+                  file_name, mime_type, size_bytes, content_sha256, grc_policy_id, grc_control_id,
+                  incident_id, owner_id, approved_by, approved_at, effective_date, expires_at,
+                  download_count, created_at, updated_at
+        "#,
+        id,
+        tenant_id,
+        payload.title,
+        payload.description,
+        payload.doc_type,
+        payload.category,
+        payload.classification,
+        payload.version,
+    )
+    .fetch_one(&state.db)
+    .await?;
+
+    Ok(Json(doc))
+}
+
+async fn remove_document(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    axum::Extension(claims): axum::Extension<Claims>,
+) -> AppResult<Json<serde_json::Value>> {
+    if !claims.role.has_permission(&UserRole::Admin) {
+        return Err(AppError::Forbidden(
+            "Admin access required to delete documents".to_string(),
+        ));
+    }
+    let result = sqlx::query!("DELETE FROM documents WHERE id = $1", id)
+        .execute(&state.db)
+        .await?;
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound("Document not found".to_string()));
+    }
+    Ok(Json(serde_json::json!({ "deleted": true, "id": id })))
 }
