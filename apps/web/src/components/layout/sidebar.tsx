@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Shield,
   LayoutDashboard,
@@ -31,6 +31,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import { api, apiClient } from "@/lib/api";
+import { clearStoredToken } from "@/lib/auth";
+import { useApiList } from "@/hooks/use-api-data";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -60,6 +63,20 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { total: alertCount } = useApiList(() => api.alerts.list({ per_page: "1" }));
+
+  const handleLogout = async () => {
+    try {
+      await api.auth.logout();
+    } catch {
+      // Still clear local state if the access token is already expired/revoked.
+    } finally {
+      apiClient.clearToken();
+      clearStoredToken();
+      router.replace("/login");
+    }
+  };
 
   return (
     <aside className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-card">
@@ -95,9 +112,9 @@ export function Sidebar() {
             >
               <item.icon className="h-5 w-5" />
               {item.name}
-              {item.name === "Alerts" && (
+              {item.name === "Alerts" && alertCount > 0 && (
                 <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
-                  3
+                  {alertCount > 99 ? "99+" : alertCount}
                 </span>
               )}
             </Link>
@@ -110,6 +127,8 @@ export function Sidebar() {
       {/* Footer */}
       <div className="p-3">
         <button
+          type="button"
+          onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           aria-label="Sign out"
         >

@@ -18,7 +18,6 @@ pub fn routes() -> Router<AppState> {
         .route("/login", post(login))
         .route("/register", post(register))
         .route("/refresh", post(refresh_token))
-        .route("/logout", post(logout))
 }
 
 #[derive(Debug, Deserialize, Validate)]
@@ -256,7 +255,7 @@ async fn refresh_token(
     Ok(Json(tokens))
 }
 
-async fn logout(
+pub async fn logout(
     State(state): State<AppState>,
     claims: axum::Extension<Claims>,
 ) -> AppResult<Json<serde_json::Value>> {

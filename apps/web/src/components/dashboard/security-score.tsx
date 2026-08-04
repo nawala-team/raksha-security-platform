@@ -6,26 +6,16 @@ import { cn } from "@/lib/utils";
 
 interface SecurityScoreProps {
   score?: number;
+  grade?: string;
   trend?: "improving" | "stable" | "declining";
-  categories?: {
-    network: number;
-    endpoint: number;
-    identity: number;
-    data: number;
-    application: number;
-  };
+  components?: Array<{ name: string; score: number; weight?: number; detail?: string }>;
 }
 
 export function SecurityScore({
-  score = 87,
-  trend = "improving",
-  categories = {
-    network: 92,
-    endpoint: 85,
-    identity: 88,
-    data: 80,
-    application: 90,
-  },
+  score = 0,
+  grade,
+  trend = "stable",
+  components = [],
 }: SecurityScoreProps) {
   const getScoreColor = (value: number) => {
     if (value >= 90) return "text-green-400";
@@ -44,6 +34,7 @@ export function SecurityScore({
   const TrendIcon = trend === "improving" ? TrendingUp : trend === "declining" ? TrendingDown : Minus;
   const trendColor = trend === "improving" ? "text-green-400" : trend === "declining" ? "text-red-400" : "text-yellow-400";
   const trendLabel = trend === "improving" ? "+3.2% this week" : trend === "declining" ? "-2.1% this week" : "No change";
+  const rows = components.length > 0 ? components : [{ name: "No scoring data", score, detail: "Security posture will populate as data is collected" }];
 
   const circumference = 2 * Math.PI * 45;
   const strokeDashoffset = circumference - (score / 100) * circumference;
@@ -84,37 +75,38 @@ export function SecurityScore({
             </svg>
             <div className="absolute flex flex-col items-center">
               <span className={cn("text-2xl font-bold", getScoreColor(score))}>
-                {score}
+                {Math.round(score)}
               </span>
               <span className="text-xs text-muted-foreground">/100</span>
+              {grade && <span className="text-[10px] text-muted-foreground">Grade {grade}</span>}
             </div>
           </div>
 
           {/* Categories */}
           <div className="flex-1 space-y-2">
-            {Object.entries(categories).map(([key, value]) => (
-              <div key={key} className="flex items-center justify-between">
-                <span className="text-xs capitalize text-muted-foreground">
-                  {key}
+            {rows.map((component) => (
+              <div key={component.name} className="flex items-center justify-between gap-3">
+                <span className="text-xs text-muted-foreground" title={component.detail}>
+                  {component.name}
                 </span>
                 <div className="flex items-center gap-2">
                   <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
                     <div
                       className={cn(
                         "h-full rounded-full",
-                        value >= 90
+                        component.score >= 90
                           ? "bg-green-400"
-                          : value >= 75
+                          : component.score >= 75
                           ? "bg-yellow-400"
-                          : value >= 50
+                          : component.score >= 50
                           ? "bg-orange-400"
                           : "bg-red-400"
                       )}
-                      style={{ width: `${value}%` }}
+                      style={{ width: `${Math.max(0, Math.min(100, component.score))}%` }}
                     />
                   </div>
-                  <span className={cn("text-xs font-medium", getScoreColor(value))}>
-                    {value}
+                  <span className={cn("text-xs font-medium", getScoreColor(component.score))}>
+                    {Math.round(component.score)}
                   </span>
                 </div>
               </div>

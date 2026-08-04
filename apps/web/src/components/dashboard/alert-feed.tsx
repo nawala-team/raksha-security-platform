@@ -3,6 +3,9 @@
 import { AlertTriangle, Shield, Info, AlertOctagon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { DataState } from "@/components/ui/data-state";
+import { useApiList } from "@/hooks/use-api-data";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { ThreatLevel } from "@/types";
 
@@ -11,53 +14,9 @@ interface AlertItem {
   title: string;
   severity: ThreatLevel;
   source: string;
-  timestamp: string;
+  created_at?: string;
+  createdAt?: string;
 }
-
-const mockAlerts: AlertItem[] = [
-  {
-    id: "1",
-    title: "Brute force attempt detected on SSH",
-    severity: "critical",
-    source: "Network Monitor",
-    timestamp: "2 min ago",
-  },
-  {
-    id: "2",
-    title: "Unauthorized access attempt to /admin",
-    severity: "high",
-    source: "WAF",
-    timestamp: "5 min ago",
-  },
-  {
-    id: "3",
-    title: "Suspicious outbound traffic to known C2 server",
-    severity: "critical",
-    source: "Threat Intel",
-    timestamp: "8 min ago",
-  },
-  {
-    id: "4",
-    title: "SSL certificate expiring in 7 days",
-    severity: "medium",
-    source: "Certificate Monitor",
-    timestamp: "15 min ago",
-  },
-  {
-    id: "5",
-    title: "New device connected to network segment",
-    severity: "low",
-    source: "Network Scanner",
-    timestamp: "22 min ago",
-  },
-  {
-    id: "6",
-    title: "Database query latency above threshold",
-    severity: "medium",
-    source: "DB Monitor",
-    timestamp: "30 min ago",
-  },
-];
 
 const severityConfig: Record<ThreatLevel, { icon: typeof AlertTriangle; color: string }> = {
   critical: { icon: AlertOctagon, color: "text-red-400" },
@@ -68,6 +27,10 @@ const severityConfig: Record<ThreatLevel, { icon: typeof AlertTriangle; color: s
 };
 
 export function AlertFeed() {
+  const { items: alerts, loading, error, refetch } = useApiList<AlertItem>(() =>
+    api.alerts.list({ per_page: "10" })
+  );
+
   return (
     <Card className="border-border">
       <CardHeader className="pb-3">
@@ -77,15 +40,25 @@ export function AlertFeed() {
             Live Alert Feed
           </CardTitle>
           <Badge variant="destructive" className="text-xs">
-            {mockAlerts.filter((a) => a.severity === "critical").length} Critical
+            {alerts.filter((a) => a.severity === "critical").length} Critical
           </Badge>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-          {mockAlerts.map((alert) => {
+        <DataState
+          loading={loading}
+          error={error}
+          isEmpty={alerts.length === 0}
+          onRetry={refetch}
+          loadingLabel="Loading live alerts"
+          emptyTitle="No active alerts"
+          emptyDescription="New alerts from agents and detectors will appear here."
+        >
+          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+            {alerts.map((alert) => {
             const config = severityConfig[alert.severity];
             const Icon = config.icon;
+            const ts = alert.created_at ?? alert.createdAt;
 
             return (
               <div
@@ -103,7 +76,7 @@ export function AlertFeed() {
                     </span>
                     <span className="text-xs text-muted-foreground">•</span>
                     <span className="text-xs text-muted-foreground">
-                      {alert.timestamp}
+                      {ts ? new Date(ts).toLocaleString() : "unknown time"}
                     </span>
                   </div>
                 </div>
@@ -115,8 +88,9 @@ export function AlertFeed() {
                 </Badge>
               </div>
             );
-          })}
-        </div>
+            })}
+          </div>
+        </DataState>
       </CardContent>
     </Card>
   );
