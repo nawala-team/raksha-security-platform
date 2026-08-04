@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use raksha_auth::Claims;
 use raksha_core::error::{AppError, AppResult};
-use raksha_core::models::new_id;
+use raksha_core::models::{new_id, UserRole};
 
 use crate::state::AppState;
 
@@ -69,9 +69,15 @@ async fn list_assets(
 
 async fn add_asset(
     State(state): State<AppState>,
-    Extension(_claims): Extension<Claims>,
+    Extension(claims): Extension<Claims>,
     Json(payload): Json<AddAssetRequest>,
 ) -> AppResult<Json<AssetResponse>> {
+    // Operator or higher may add assets.
+    if !claims.role.has_permission(&UserRole::Operator) {
+        return Err(AppError::Forbidden(
+            "Operator access required to add assets".to_string(),
+        ));
+    }
     if payload.domain.trim().is_empty() {
         return Err(AppError::Validation("Asset domain is required".to_string()));
     }
@@ -103,9 +109,15 @@ async fn add_asset(
 
 async fn remove_asset(
     State(state): State<AppState>,
-    Extension(_claims): Extension<Claims>,
+    Extension(claims): Extension<Claims>,
     Path(asset_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
+    // Admin or higher may remove assets.
+    if !claims.role.has_permission(&UserRole::Admin) {
+        return Err(AppError::Forbidden(
+            "Admin access required to remove assets".to_string(),
+        ));
+    }
     let result = sqlx::query!("DELETE FROM attack_surface_assets WHERE id = $1", asset_id)
         .execute(&state.db)
         .await?;

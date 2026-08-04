@@ -36,14 +36,15 @@ pub enum PermissionLevel {
     Admin = 5,
 }
 
-/// Maps roles to their maximum permission level
+/// Maps roles to their maximum permission level.
+/// Hierarchy: Viewer < Operator/Analyst < Admin < SuperAdmin
 pub fn role_permission_level(role: &UserRole) -> PermissionLevel {
     match role {
         UserRole::Viewer => PermissionLevel::Read,
-        UserRole::Operator => PermissionLevel::Update,
+        UserRole::Operator => PermissionLevel::Create,
+        UserRole::Analyst => PermissionLevel::Create,
         UserRole::Admin => PermissionLevel::Admin,
-        // Defensive: unknown/future roles get minimum permissions
-        _ => PermissionLevel::Read,
+        UserRole::SuperAdmin => PermissionLevel::Admin,
     }
 }
 

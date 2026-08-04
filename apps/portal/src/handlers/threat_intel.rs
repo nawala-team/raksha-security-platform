@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use raksha_auth::Claims;
-use raksha_core::models::new_id;
+use raksha_core::error::{AppError, AppResult};
+use raksha_core::models::{new_id, UserRole};
 
 use crate::state::AppState;
 
@@ -60,11 +61,17 @@ async fn list_feeds(State(_state): State<AppState>) -> Json<Vec<FeedStatus>> {
     Json(feeds)
 }
 
-async fn sync_feeds(State(_state): State<AppState>) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
+async fn sync_feeds(Extension(claims): Extension<Claims>) -> AppResult<Json<serde_json::Value>> {
+    if !claims.role.has_permission(&UserRole::Operator) {
+        return Err(AppError::Forbidden(
+            "Operator access required to synchronize threat feeds".to_string(),
+        ));
+    }
+
+    Ok(Json(serde_json::json!({
         "status": "sync_started",
         "message": "All feeds queued for synchronization"
-    }))
+    })))
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -129,9 +136,14 @@ async fn list_iocs(
 
 async fn add_ioc(
     State(state): State<AppState>,
-    Extension(_claims): Extension<Claims>,
+    Extension(claims): Extension<Claims>,
     Json(payload): Json<AddIOCRequest>,
-) -> Json<serde_json::Value> {
+) -> AppResult<Json<serde_json::Value>> {
+    if !claims.role.has_permission(&UserRole::Operator) {
+        return Err(AppError::Forbidden(
+            "Operator access required to add indicators".to_string(),
+        ));
+    }
     // Map friendly UI types to the DB check-constraint enum values.
     let indicator_type = match payload.ioc_type.as_str() {
         "ip" => "ip_v4",
@@ -160,16 +172,16 @@ async fn add_ioc(
     .await;
 
     match result {
-        Ok(_) => Json(serde_json::json!({
+        Ok(_) => Ok(Json(serde_json::json!({
             "status": "created",
             "ioc_type": payload.ioc_type,
             "value": payload.value,
             "id": id,
-        })),
-        Err(e) => Json(serde_json::json!({
+        }))),
+        Err(e) => Ok(Json(serde_json::json!({
             "status": "error",
             "message": e.to_string(),
-        })),
+        }))),
     }
 }
 

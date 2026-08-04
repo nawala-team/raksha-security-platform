@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use raksha_auth::Claims;
 use raksha_core::error::{AppError, AppResult};
-use raksha_core::models::new_id;
+use raksha_core::models::{new_id, UserRole};
 
 use crate::state::AppState;
 
@@ -86,9 +86,15 @@ async fn list_databases(
 
 async fn register_database(
     State(state): State<AppState>,
-    Extension(_claims): Extension<Claims>,
+    Extension(claims): Extension<Claims>,
     Json(payload): Json<RegisterDatabaseRequest>,
 ) -> AppResult<Json<DatabaseInstanceResponse>> {
+    // Operator or higher may register a database.
+    if !claims.role.has_permission(&UserRole::Operator) {
+        return Err(AppError::Forbidden(
+            "Operator access required to register databases".to_string(),
+        ));
+    }
     if payload.name.trim().is_empty() {
         return Err(AppError::Validation("Name is required".to_string()));
     }
@@ -148,9 +154,15 @@ async fn get_database(
 
 async fn remove_database(
     State(state): State<AppState>,
-    Extension(_claims): Extension<Claims>,
+    Extension(claims): Extension<Claims>,
     Path(db_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
+    // Admin or higher may remove a monitored database.
+    if !claims.role.has_permission(&UserRole::Admin) {
+        return Err(AppError::Forbidden(
+            "Admin access required to remove databases".to_string(),
+        ));
+    }
     let result = sqlx::query!("DELETE FROM monitored_databases WHERE id = $1", db_id)
         .execute(&state.db)
         .await?;

@@ -9,7 +9,7 @@ use uuid::Uuid;
 use raksha_alert::{AlertFilter, CreateAlert};
 use raksha_auth::Claims;
 use raksha_core::error::{AppError, AppResult};
-use raksha_core::models::{AlertStatus, Pagination, PaginatedResponse, PaginationMeta};
+use raksha_core::models::{AlertStatus, Pagination, PaginatedResponse, PaginationMeta, UserRole};
 
 use crate::state::AppState;
 
@@ -44,9 +44,15 @@ async fn list_alerts(
 
 async fn create_alert(
     State(state): State<AppState>,
-    _claims: axum::Extension<Claims>,
+    axum::Extension(claims): axum::Extension<Claims>,
     Json(payload): Json<CreateAlert>,
 ) -> AppResult<Json<raksha_alert::Alert>> {
+    // Operator or higher may create alerts.
+    if !claims.role.has_permission(&UserRole::Operator) {
+        return Err(AppError::Forbidden(
+            "Operator access required to create alerts".to_string(),
+        ));
+    }
     let alert = state.alert_engine.create_alert(payload).await?;
     Ok(Json(alert))
 }
@@ -73,9 +79,15 @@ struct UpdateStatusRequest {
 async fn update_alert_status(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-    _claims: axum::Extension<Claims>,
+    axum::Extension(claims): axum::Extension<Claims>,
     Json(payload): Json<UpdateStatusRequest>,
 ) -> AppResult<Json<raksha_alert::Alert>> {
+    // Operator or higher may change alert status (ack / resolve).
+    if !claims.role.has_permission(&UserRole::Operator) {
+        return Err(AppError::Forbidden(
+            "Operator access required to update alerts".to_string(),
+        ));
+    }
     let alert = state
         .alert_engine
         .update_status(&id, payload.status)
