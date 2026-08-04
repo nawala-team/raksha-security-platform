@@ -8,7 +8,8 @@ const nextConfig = {
     useWasmBinary: true,
   },
   async rewrites() {
-    const portalUrl = process.env.PORTAL_API_URL || 'http://portal:8080';
+    // For local dev use localhost, for Docker use portal hostname
+    const portalUrl = process.env.PORTAL_API_URL || 'http://127.0.0.1:8080';
 
     return [
       {
