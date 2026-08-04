@@ -234,6 +234,9 @@ export const api = {
     timeline: (id: string) => apiClient.get(`/incidents/${id}/timeline`),
     tasks: (id: string) => apiClient.get(`/incidents/${id}/tasks`),
     summary: () => apiClient.get("/incidents/summary"),
+    create: (data: unknown) => apiClient.post("/incidents", data),
+    updateStatus: (id: string, status: string) =>
+      apiClient.patch(`/incidents/${id}/status`, { status }),
   },
   grc: {
     risks: () => apiClient.get("/grc/risks"),

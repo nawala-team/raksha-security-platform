@@ -2,24 +2,25 @@
 
 use axum::{
     extract::{Path, Query, State},
-    routing::get,
+    routing::{get, patch, post},
     Json, Router,
 };
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use raksha_auth::Claims;
 use raksha_core::error::{AppError, AppResult};
-use raksha_core::models::{Pagination, PaginatedResponse, PaginationMeta};
+use raksha_core::models::{new_id, Pagination, PaginatedResponse, PaginationMeta, UserRole};
 
 use crate::state::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/", get(list_incidents))
+        .route("/", get(list_incidents).post(create_incident))
         .route("/summary", get(incident_summary))
         .route("/:id", get(get_incident))
+        .route("/:id/status", patch(update_incident_status))
         .route("/:id/timeline", get(get_timeline))
         .route("/:id/tasks", get(get_tasks))
 }
@@ -236,4 +237,133 @@ async fn incident_summary(
         closed_last_30d: row.closed_30d,
         mttr_minutes: row.mttr.map(|v| v.round()),
     }))
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateIncidentRequest {
+    title: String,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default = "default_severity")]
+    severity: String,
+    #[serde(default = "default_priority")]
+    priority: String,
+    #[serde(default)]
+    category: Option<String>,
+    #[serde(default)]
+    impact_scope: Option<String>,
+}
+
+fn default_severity() -> String {
+    "medium".to_string()
+}
+fn default_priority() -> String {
+    "medium".to_string()
+}
+
+async fn create_incident(
+    State(state): State<AppState>,
+    axum::Extension(claims): axum::Extension<Claims>,
+    Json(payload): Json<CreateIncidentRequest>,
+) -> AppResult<Json<IncidentResponse>> {
+    // Operator or higher may create incidents.
+    if !claims.role.has_permission(&UserRole::Operator) {
+        return Err(AppError::Forbidden(
+            "Operator access required to create incidents".to_string(),
+        ));
+    }
+    if payload.title.trim().is_empty() {
+        return Err(AppError::Validation("Incident title is required".to_string()));
+    }
+
+    let id = new_id();
+    // Keep within the incident_number VARCHAR(20) limit.
+    let incident_number = format!("INC-{}", &id.to_string()[..8].to_uppercase());
+
+    let incident = sqlx::query_as!(
+        IncidentResponse,
+        r#"
+        INSERT INTO incidents (id, incident_number, title, description, severity, status, priority,
+                               category, impact_scope, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, 'open', $6, $7, $8, NOW(), NOW())
+        RETURNING id, incident_number, title, description, severity, status,
+                  priority, category, classification, commander_id, assigned_team,
+                  affected_systems, affected_users_count, impact_scope,
+                  mitre_tactics, mitre_techniques, attack_vector, root_cause,
+                  sla_breached, first_detected_at, first_response_at,
+                  contained_at, closed_at, created_at, updated_at
+        "#,
+        id,
+        incident_number,
+        payload.title,
+        payload.description,
+        payload.severity,
+        payload.priority,
+        payload.category,
+        payload.impact_scope,
+    )
+    .fetch_one(&state.db)
+    .await?;
+
+    Ok(Json(incident))
+}
+
+#[derive(Debug, Deserialize)]
+struct UpdateIncidentStatusRequest {
+    status: String,
+}
+
+async fn update_incident_status(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    axum::Extension(claims): axum::Extension<Claims>,
+    Json(payload): Json<UpdateIncidentStatusRequest>,
+) -> AppResult<Json<IncidentResponse>> {
+    if !claims.role.has_permission(&UserRole::Operator) {
+        return Err(AppError::Forbidden(
+            "Operator access required to update incidents".to_string(),
+        ));
+    }
+
+    let status = payload.status;
+    let incident = if status == "closed" {
+        sqlx::query_as!(
+            IncidentResponse,
+            r#"
+            UPDATE incidents SET status = $2, closed_at = NOW(), updated_at = NOW()
+            WHERE id = $1
+            RETURNING id, incident_number, title, description, severity, status,
+                      priority, category, classification, commander_id, assigned_team,
+                      affected_systems, affected_users_count, impact_scope,
+                      mitre_tactics, mitre_techniques, attack_vector, root_cause,
+                      sla_breached, first_detected_at, first_response_at,
+                      contained_at, closed_at, created_at, updated_at
+            "#,
+            id,
+            status,
+        )
+        .fetch_optional(&state.db)
+        .await?
+    } else {
+        sqlx::query_as!(
+            IncidentResponse,
+            r#"
+            UPDATE incidents SET status = $2, updated_at = NOW()
+            WHERE id = $1
+            RETURNING id, incident_number, title, description, severity, status,
+                      priority, category, classification, commander_id, assigned_team,
+                      affected_systems, affected_users_count, impact_scope,
+                      mitre_tactics, mitre_techniques, attack_vector, root_cause,
+                      sla_breached, first_detected_at, first_response_at,
+                      contained_at, closed_at, created_at, updated_at
+            "#,
+            id,
+            status,
+        )
+        .fetch_optional(&state.db)
+        .await?
+    }
+    .ok_or(AppError::NotFound("Incident not found".to_string()))?;
+
+    Ok(Json(incident))
 }

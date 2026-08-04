@@ -166,6 +166,33 @@ export default function IncidentsPage() {
     [expandedRow]
   );
 
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const createIncident = async () => {
+    if (!newTitle.trim()) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await api.incidents.create({
+        title: newTitle,
+        description: newDescription || undefined,
+        severity: newSeverity,
+        priority: newSeverity,
+      });
+      setShowCreateModal(false);
+      setNewTitle("");
+      setNewDescription("");
+      setNewSeverity("medium");
+      incidents.refetch();
+      summary.refetch();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to create incident");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const filtered = incidents.items.filter((incident) => {
     if (statusFilter !== "all" && incident.status !== statusFilter) return false;
     if (
@@ -435,12 +462,14 @@ export default function IncidentsPage() {
                 <Input placeholder="e.g., ALT-101, ALT-102" disabled />
                 <p className="text-xs text-muted-foreground">Alert linking available after creation</p>
               </div>
-              {/* The portal exposes read-only incident endpoints today, so creation stays disabled. */}
+              {/* Create Incident Modal Actions */}
               <div className="flex items-center justify-between gap-2 pt-2">
-                <p className="text-xs text-muted-foreground">Incident creation is not yet available from the portal API.</p>
-                <div className="flex gap-2">
+                <p className="text-xs text-destructive">{saveError}</p>
+                <div className="flex gap-2 ml-auto">
                   <Button variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>
-                  <Button disabled>Create Incident</Button>
+                  <Button onClick={createIncident} disabled={saving || !newTitle.trim()}>
+                    {saving ? "Creating..." : "Create Incident"}
+                  </Button>
                 </div>
               </div>
             </div>
