@@ -103,7 +103,12 @@ Part of the [Nawala Ecosystem](https://github.com/dansiapa/nawala-gateway-platfo
 | Threat Intel (feeds, IOCs, add IOC, search) | ✅ | ✅ |
 | Attack Surface (list, add, remove, summary) | ✅ | ✅ |
 | Audit Trail (list) | ✅ | ⏳ (read) |
-| Servers, Network, Containers, Honeypots, Dark Web, Hunting, Backups, Documents, Incidents, GRC, Vulnerabilities | ✅ | ⏳ (read-only) |
+| Backups (list, create, toggle, delete) | ✅ | ✅ |
+| Documents (list, create, delete, summary) | ✅ | ✅ |
+| GRC Risks (list, create, delete, summary) | ✅ | ✅ |
+| Hunting Queries (list, create, delete, validate) | ✅ | ✅ |
+| Network Rules (list, create, delete, summary) | ✅ | ✅ |
+| Servers, Containers, Honeypots, Dark Web, Incidents, Vulnerabilities | ✅ | ⏳ (read-only) |
 | Settings | ✅ | ⏳ (read) |
 
 **Legenda:** ✅ = berfungsi penuh · ⏳ = data tampil / sebagian.
