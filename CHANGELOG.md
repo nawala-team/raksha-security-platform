@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0] - 2026-08-05
+
+### Added
+
+#### Database Guard - Extended Database Support
+- **Oracle Database**: Full support with service_name, SID, and TNS alias configuration
+- **MariaDB**: Native support with auto-detection
+- **SQL Server**: Microsoft SQL Server monitoring support
+- New API endpoint `/databases/types` for listing supported database types
+- Auto-port detection for all 7 supported database types
+- Database type validation on registration
+
+#### Server Monitor - Extended OS Support
+- **Enterprise Unix**: Oracle Solaris, IBM AIX, HP-UX, illumos
+- **Container OS**: Alpine Linux, Flatcar, Bottlerocket, CoreOS, VMware Photon OS, Talos, RancherOS
+- **BSD Variants**: NetBSD, DragonFly BSD (in addition to existing FreeBSD, OpenBSD)
+- **Linux Distributions**: Enhanced detection for Ubuntu, Debian, RHEL, CentOS, Rocky, AlmaLinux, Fedora, SUSE, Amazon Linux, Oracle Linux, Arch, Gentoo
+- New API endpoint `/servers/os-families` with category filtering
+- New `os_families` reference table for UI dropdowns
+- Color-coded OS display in server cards
+
+### Changed
+- Updated README.md with comprehensive database support list
+- Enhanced database registration form with Oracle-specific fields (conditional UI)
+- Improved server page with OS-specific color coding
+
+### Database Migrations
+- `20260805000001_add_oracle_database_support.sql`: Oracle columns for monitored_databases
+- `20260805000002_add_extended_os_support.sql`: Extended os_type constraint + os_families table
+
+### Supported Platforms
+
+#### Databases (7 types)
+| Database | Default Port | Status |
+|----------|--------------|--------|
+| PostgreSQL | 5432 | ✅ |
+| MySQL | 3306 | ✅ |
+| MongoDB | 27017 | ✅ |
+| Redis | 6379 | ✅ |
+| Oracle | 1521 | 🆕 |
+| MariaDB | 3306 | 🆕 |
+| SQL Server | 1433 | 🆕 |
+
+#### Operating Systems (14 types)
+| Category | OS Types |
+|----------|----------|
+| Linux | linux, ubuntu, debian, rhel, centos, rocky, alma, fedora, suse, amazon, oracle_linux, arch |
+| Windows | windows, windows_server |
+| macOS | macos |
+| BSD | freebsd, openbsd, netbsd, dragonflybsd |
+| Enterprise Unix | solaris, aix, hpux, illumos |
+| Container OS | alpine, flatcar, bottlerocket, coreos, photon, talos, rancher |
+
+### Stats
+- 8 files changed
+- +457 insertions
+- -14 deletions
+
+---
+
 ## [1.1.0] - 2026-08-05
 
 ### Added
