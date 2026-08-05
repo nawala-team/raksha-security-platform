@@ -35,6 +35,58 @@ const statusColors: Record<string, string> = {
   maintenance: "bg-blue-500",
 };
 
+/** OS display names and colors */
+const osDisplayInfo: Record<string, { name: string; color: string }> = {
+  // Linux distributions
+  linux: { name: "Linux", color: "text-yellow-400" },
+  ubuntu: { name: "Ubuntu", color: "text-orange-400" },
+  debian: { name: "Debian", color: "text-red-400" },
+  rhel: { name: "RHEL", color: "text-red-500" },
+  centos: { name: "CentOS", color: "text-purple-400" },
+  rocky: { name: "Rocky", color: "text-green-400" },
+  alma: { name: "AlmaLinux", color: "text-blue-400" },
+  fedora: { name: "Fedora", color: "text-blue-500" },
+  suse: { name: "SUSE", color: "text-green-500" },
+  opensuse: { name: "openSUSE", color: "text-green-400" },
+  amazon: { name: "Amazon Linux", color: "text-orange-500" },
+  oracle_linux: { name: "Oracle Linux", color: "text-red-400" },
+  arch: { name: "Arch", color: "text-cyan-400" },
+  
+  // Container OS
+  alpine: { name: "Alpine", color: "text-blue-300" },
+  flatcar: { name: "Flatcar", color: "text-cyan-400" },
+  bottlerocket: { name: "Bottlerocket", color: "text-orange-400" },
+  coreos: { name: "CoreOS", color: "text-red-400" },
+  photon: { name: "Photon OS", color: "text-blue-400" },
+  talos: { name: "Talos", color: "text-yellow-400" },
+  
+  // Windows
+  windows: { name: "Windows", color: "text-blue-400" },
+  windows_server: { name: "Windows Server", color: "text-blue-500" },
+  
+  // macOS
+  macos: { name: "macOS", color: "text-gray-300" },
+  
+  // BSD
+  freebsd: { name: "FreeBSD", color: "text-red-400" },
+  openbsd: { name: "OpenBSD", color: "text-yellow-400" },
+  netbsd: { name: "NetBSD", color: "text-orange-400" },
+  dragonflybsd: { name: "DragonFly BSD", color: "text-green-400" },
+  
+  // Enterprise Unix
+  solaris: { name: "Solaris", color: "text-orange-500" },
+  illumos: { name: "illumos", color: "text-orange-400" },
+  aix: { name: "IBM AIX", color: "text-blue-500" },
+  hpux: { name: "HP-UX", color: "text-green-500" },
+};
+
+/** Get OS display info with fallback */
+function getOsInfo(osFamily: string | null): { name: string; color: string } {
+  if (!osFamily) return { name: "Unknown", color: "text-muted-foreground" };
+  const key = osFamily.toLowerCase().replace(/[- ]/g, "_");
+  return osDisplayInfo[key] || { name: osFamily, color: "text-muted-foreground" };
+}
+
 /** Coloured usage meter; renders an em dash when the agent reported nothing. */
 function UsageBar({ value, label }: { value: number | null; label: string }) {
   const pct = Math.round(value ?? 0);
@@ -107,7 +159,10 @@ export default function ServersPage() {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {server.ip_address ?? "no IP"} • {server.os_family ?? "unknown OS"}
+                  {server.ip_address ?? "no IP"} •{" "}
+                  <span className={getOsInfo(server.os_family).color}>
+                    {getOsInfo(server.os_family).name}
+                  </span>
                   {server.os_version ? ` ${server.os_version}` : ""} •{" "}
                   {relativeTime(server.last_seen_at)}
                 </p>
