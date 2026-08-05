@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRealtime, type WsRealtimeEvent } from "@/hooks/use-realtime";
@@ -26,7 +26,7 @@ export function RealtimeNotifications() {
   const [notifications, setNotifications] = useState<ToastNotification[]>([]);
   const [visible, setVisible] = useState<string[]>([]);
 
-  const handleEvent = (event: WsRealtimeEvent) => {
+  const handleEvent = useCallback((event: WsRealtimeEvent) => {
     if (event.channel === "alerts") {
       const notif: ToastNotification = {
         id: crypto.randomUUID(),
@@ -47,7 +47,7 @@ export function RealtimeNotifications() {
         }, 8000);
       }
     }
-  };
+  }, []);
 
   const { connected } = useRealtime({
     channels: ["alerts", "agent_status", "system_health"],
