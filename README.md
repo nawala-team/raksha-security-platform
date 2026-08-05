@@ -9,9 +9,13 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/dansiapa/raksha-security-platform/releases/tag/v1.1.0"><img src="https://img.shields.io/badge/version-1.1.0-blue?style=for-the-badge" alt="Version"/></a>
   <a href="#features"><img src="https://img.shields.io/badge/status-active-brightgreen?style=for-the-badge" alt="Status"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="License"/></a>
   <a href="#nawala-ecosystem"><img src="https://img.shields.io/badge/ecosystem-Nawala-orange?style=for-the-badge" alt="Nawala"/></a>
+</p>
+
+<p align="center">
   <a href="#"><img src="https://img.shields.io/badge/rust-1.75+-orange?style=for-the-badge&logo=rust" alt="Rust"/></a>
   <a href="#"><img src="https://img.shields.io/badge/node-20+-green?style=for-the-badge&logo=node.js" alt="Node.js"/></a>
   <a href="#"><img src="https://img.shields.io/badge/python-3.11+-blue?style=for-the-badge&logo=python" alt="Python"/></a>
@@ -22,6 +26,7 @@
   <a href="docs/ARCHITECTURE.md">Architecture</a> •
   <a href="docs/API.md">API Reference</a> •
   <a href="docs/AGENT-ENROLLMENT.md">Agent Setup</a> •
+  <a href="CHANGELOG.md">Changelog</a> •
   <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
@@ -410,7 +415,7 @@ raksha-security-platform/
 |----------|-------------|
 | [Architecture](docs/ARCHITECTURE.md) | System design and component overview |
 | [API Reference](docs/API.md) | REST and GraphQL API documentation |
-| [Installation Guide](docs/INSTALLATION.md) | Detailed setup instructions |
+| [Installation Guide](INSTALLATION.md) | Detailed setup instructions |
 | [Agent Enrollment](docs/AGENT-ENROLLMENT.md) | Agent setup and enrollment flow |
 | [Branching Strategy](docs/BRANCHING.md) | Git flow and branch protection rules |
 | [Threat Intelligence](docs/THREAT-INTELLIGENCE.md) | IOC feeds and correlation |
