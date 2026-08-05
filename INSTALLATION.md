@@ -1,5 +1,7 @@
 # Raksha Security Platform — Installation Guide
 
+> **Current Version: 1.1.0** | [Changelog](CHANGELOG.md) | [Releases](https://github.com/dansiapa/raksha-security-platform/releases)
+
 Step-by-step instructions to install and run the Raksha Security Platform
 locally (bare metal / Termux) or in production with Docker Compose.
 
