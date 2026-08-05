@@ -35,15 +35,11 @@ interface HuntingQuery {
 /** Mirrors the portal's `HuntingRunResponse`. */
 interface HuntingRun {
   id: string;
-  query_id: string;
-  trigger: string;
-  status: string;
-  total_hits: number | null;
-  duration_ms: number | null;
-  alert_triggered: boolean;
-  alert_id: string | null;
+  query_id: string | null;
+  status: string | null;
+  results_count: number | null;
   error_message: string | null;
-  started_at: string;
+  started_at: string | null;
   completed_at: string | null;
 }
 
@@ -198,41 +194,27 @@ export default function HuntingPage() {
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
                     <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Query</th>
-                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Trigger</th>
                     <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Hits</th>
-                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Duration</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Results</th>
                     <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Started</th>
-                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Alert</th>
                   </tr>
                 </thead>
                 <tbody>
                   {runs.items.map((run) => (
                     <tr key={run.id} className="border-b border-border transition-colors hover:bg-muted/20">
                       <td className="px-4 py-3 text-foreground">
-                        {queryNames.get(run.query_id) ?? "—"}
+                        {run.query_id ? (queryNames.get(run.query_id) ?? "—") : "—"}
                         {run.error_message && (
                           <p className="font-mono text-xs text-red-400">{run.error_message}</p>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{run.trigger}</td>
                       <td className="px-4 py-3">
                         <Badge variant={run.status === "failed" ? "destructive" : "outline"}>
-                          {run.status}
+                          {run.status ?? "pending"}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{formatNumber(run.total_hits)}</td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {run.duration_ms === null ? "—" : `${formatNumber(run.duration_ms)} ms`}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">{relativeTime(run.started_at)}</td>
-                      <td className="px-4 py-3">
-                        {run.alert_triggered ? (
-                          <Badge variant="high" className="text-xs">alert raised</Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{formatNumber(run.results_count)}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{run.started_at ? relativeTime(run.started_at) : "—"}</td>
                     </tr>
                   ))}
                 </tbody>

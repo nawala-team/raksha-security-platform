@@ -45,20 +45,16 @@ interface BackupJob {
 /** Mirrors the portal's `BackupRunResponse`. */
 interface BackupRun {
   id: string;
-  job_id: string;
-  trigger: string;
-  status: string;
+  job_id: string | null;
+  trigger: string | null;
+  status: string | null;
   size_bytes: number | null;
   compressed_bytes: number | null;
   file_count: number | null;
   duration_secs: number | null;
   checksum: string | null;
-  verified: boolean;
-  verified_at: string | null;
-  restore_tested: boolean;
   error_message: string | null;
-  expires_at: string | null;
-  started_at: string;
+  started_at: string | null;
   completed_at: string | null;
 }
 
@@ -107,7 +103,7 @@ export default function BackupsPage() {
   const encryptedJobs = Math.max(totalJobs - unencryptedJobs, 0);
   const encryptedPct = percent(encryptedJobs, totalJobs);
 
-  const verifiedRuns = runs.items.filter((run) => run.verified).length;
+  const completedRuns = runs.items.filter((run) => run.status === 'completed').length;
 
   const stats = [
     {
@@ -414,7 +410,7 @@ export default function BackupsPage() {
               Recent Runs
             </CardTitle>
             <span className="text-xs text-muted-foreground">
-              {formatNumber(verifiedRuns)} of {formatNumber(runs.items.length)} shown runs verified
+              {formatNumber(completedRuns)} of {formatNumber(runs.items.length)} runs completed
             </span>
           </div>
         </CardHeader>
@@ -442,23 +438,22 @@ export default function BackupsPage() {
                     <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Compressed</th>
                     <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Duration</th>
                     <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Verified</th>
                   </tr>
                 </thead>
                 <tbody>
                   {runs.items.map((run) => {
-                    const cfg = statusConfig[run.status];
+                    const cfg = statusConfig[run.status ?? 'pending'];
                     const StatusIcon = cfg?.icon;
                     return (
                       <tr key={run.id} className="border-b border-border transition-colors hover:bg-muted/20">
                         <td className="px-4 py-3 font-medium text-foreground">
-                          {jobNames.get(run.job_id) ?? "—"}
+                          {run.job_id ? (jobNames.get(run.job_id) ?? "—") : "—"}
                           {run.error_message && (
                             <p className="font-mono text-xs text-red-400">{run.error_message}</p>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">{run.trigger}</td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">{relativeTime(run.started_at)}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{run.trigger ?? "—"}</td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">{run.started_at ? relativeTime(run.started_at) : "—"}</td>
                         <td className="px-4 py-3 text-muted-foreground">{formatBytes(run.size_bytes)}</td>
                         <td className="px-4 py-3 text-muted-foreground">{formatBytes(run.compressed_bytes)}</td>
                         <td className="px-4 py-3 text-muted-foreground">
@@ -467,17 +462,8 @@ export default function BackupsPage() {
                         <td className="px-4 py-3">
                           <span className={`flex items-center gap-1.5 text-xs font-medium ${cfg?.color ?? "text-muted-foreground"}`}>
                             {StatusIcon && <StatusIcon className="h-3.5 w-3.5" aria-hidden="true" />}
-                            {run.status}
+                            {run.status ?? "pending"}
                           </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {run.verified ? (
-                            <Badge variant="outline" className="text-xs">
-                              {relativeTime(run.verified_at)}
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">unverified</Badge>
-                          )}
                         </td>
                       </tr>
                     );

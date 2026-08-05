@@ -8,7 +8,7 @@ use tracing::info;
 use uuid::Uuid;
 
 use crate::models::{
-    Control, ControlMapping, ControlStatus, CreateControlMappingRequest, Framework,
+    ControlMapping, ControlStatus, CreateControlMappingRequest, Framework,
     FrameworkCoverage, Id,
 };
 

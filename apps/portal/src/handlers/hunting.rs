@@ -1,13 +1,8 @@
 //! Threat hunting endpoints: saved RQL queries, run history and validation.
-//!
-//! Query *execution* targets the OpenSearch-backed SIEM via
-//! `raksha_core::hunting::QueryExecutor`; these endpoints manage the saved
-//! query definitions and their run history, plus syntax validation using the
-//! real RQL parser so the UI can check a query before saving it.
 
 use axum::{
     extract::{Path, Query, State},
-    routing::{delete, get, post},
+    routing::{get, post},
     Json, Router,
 };
 use chrono::{DateTime, Utc};
@@ -23,6 +18,7 @@ use crate::state::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .route("/", get(list_queries))
         .route("/queries", get(list_queries).post(create_query))
         .route("/queries/:id", get(get_query).delete(remove_query))
         .route("/queries/:id/runs", get(list_query_runs))
@@ -30,7 +26,7 @@ pub fn routes() -> Router<AppState> {
         .route("/validate", post(validate_rql))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 struct HuntingQueryResponse {
     id: Uuid,
     name: String,
@@ -53,8 +49,7 @@ async fn list_queries(
     State(state): State<AppState>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<Vec<HuntingQueryResponse>>> {
-    let queries = sqlx::query_as!(
-        HuntingQueryResponse,
+    let queries = sqlx::query_as::<_, HuntingQueryResponse>(
         r#"
         SELECT id, name, description, rql, query_source, is_scheduled,
                schedule_interval_mins, alert_on_hits, alert_threshold,
@@ -75,17 +70,16 @@ async fn get_query(
     Path(id): Path<Uuid>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<HuntingQueryResponse>> {
-    let query = sqlx::query_as!(
-        HuntingQueryResponse,
+    let query = sqlx::query_as::<_, HuntingQueryResponse>(
         r#"
         SELECT id, name, description, rql, query_source, is_scheduled,
                schedule_interval_mins, alert_on_hits, alert_threshold,
                alert_severity, last_run_at, next_run_at, last_hit_count,
                run_count, created_at
         FROM hunting_queries WHERE id = $1
-        "#,
-        id,
+        "#
     )
+    .bind(id)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound("Hunting query not found".to_string()))?;
@@ -93,18 +87,14 @@ async fn get_query(
     Ok(Json(query))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 struct HuntingRunResponse {
     id: Uuid,
-    query_id: Uuid,
-    trigger: String,
-    status: String,
-    total_hits: Option<i64>,
-    duration_ms: Option<i64>,
-    alert_triggered: bool,
-    alert_id: Option<Uuid>,
+    query_id: Option<Uuid>,
+    status: Option<String>,
+    results_count: Option<i32>,
     error_message: Option<String>,
-    started_at: DateTime<Utc>,
+    started_at: Option<DateTime<Utc>>,
     completed_at: Option<DateTime<Utc>>,
 }
 
@@ -113,24 +103,24 @@ async fn list_runs(
     Query(pagination): Query<Pagination>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<PaginatedResponse<HuntingRunResponse>>> {
-    let runs = sqlx::query_as!(
-        HuntingRunResponse,
+    let runs = sqlx::query_as::<_, HuntingRunResponse>(
         r#"
-        SELECT id, query_id, trigger, status, total_hits, duration_ms,
-               alert_triggered, alert_id, error_message, started_at, completed_at
+        SELECT id, query_id, status, results_count, error_message,
+               started_at, completed_at
         FROM hunting_runs
-        ORDER BY started_at DESC
+        ORDER BY created_at DESC
         LIMIT $1 OFFSET $2
-        "#,
-        pagination.limit(),
-        pagination.offset(),
+        "#
     )
+    .bind(pagination.limit())
+    .bind(pagination.offset())
     .fetch_all(&state.db)
     .await?;
 
-    let total = sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM hunting_runs"#)
+    let total: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM hunting_runs"#)
         .fetch_one(&state.db)
-        .await?;
+        .await
+        .unwrap_or(0);
 
     Ok(Json(PaginatedResponse {
         data: runs,
@@ -145,25 +135,41 @@ async fn list_runs(
 
 async fn list_query_runs(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path(query_id): Path<Uuid>,
+    Query(pagination): Query<Pagination>,
     _claims: axum::Extension<Claims>,
-) -> AppResult<Json<Vec<HuntingRunResponse>>> {
-    let runs = sqlx::query_as!(
-        HuntingRunResponse,
+) -> AppResult<Json<PaginatedResponse<HuntingRunResponse>>> {
+    let runs = sqlx::query_as::<_, HuntingRunResponse>(
         r#"
-        SELECT id, query_id, trigger, status, total_hits, duration_ms,
-               alert_triggered, alert_id, error_message, started_at, completed_at
+        SELECT id, query_id, status, results_count, error_message,
+               started_at, completed_at
         FROM hunting_runs
         WHERE query_id = $1
-        ORDER BY started_at DESC
-        LIMIT 50
-        "#,
-        id,
+        ORDER BY created_at DESC
+        LIMIT $2 OFFSET $3
+        "#
     )
+    .bind(query_id)
+    .bind(pagination.limit())
+    .bind(pagination.offset())
     .fetch_all(&state.db)
     .await?;
 
-    Ok(Json(runs))
+    let total: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM hunting_runs WHERE query_id = $1"#)
+        .bind(query_id)
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or(0);
+
+    Ok(Json(PaginatedResponse {
+        data: runs,
+        meta: PaginationMeta {
+            page: pagination.page,
+            per_page: pagination.per_page,
+            total,
+            total_pages: ((total as f64) / (pagination.limit() as f64)).ceil() as u32,
+        },
+    }))
 }
 
 #[derive(Debug, Deserialize)]
@@ -178,10 +184,9 @@ struct ValidateResponse {
     source: Option<String>,
     has_filter: bool,
     aggregation_count: usize,
-    limit: Option<u64>,
+    limit: Option<usize>,
 }
 
-/// Parse an RQL string with the real parser and report what it resolved to.
 async fn validate_rql(
     _claims: axum::Extension<Claims>,
     Json(req): Json<ValidateRequest>,
@@ -195,7 +200,7 @@ async fn validate_rql(
                 .and_then(|v| v.as_str().map(str::to_string)),
             has_filter: ast.filter.is_some(),
             aggregation_count: ast.aggregations.len(),
-            limit: ast.limit,
+            limit: ast.limit.map(|l| l as usize),
         })),
         Err(e) => Ok(Json(ValidateResponse {
             valid: false,
@@ -218,9 +223,7 @@ struct CreateQueryRequest {
     query_source: String,
 }
 
-fn default_source() -> String {
-    "events".to_string()
-}
+fn default_source() -> String { "events".to_string() }
 
 async fn create_query(
     State(state): State<AppState>,
@@ -242,8 +245,7 @@ async fn create_query(
     let id = new_id();
     let tenant_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
 
-    let query = sqlx::query_as!(
-        HuntingQueryResponse,
+    let query = sqlx::query_as::<_, HuntingQueryResponse>(
         r#"
         INSERT INTO hunting_queries
             (id, tenant_id, name, description, rql, query_source, is_scheduled,
@@ -252,15 +254,15 @@ async fn create_query(
         RETURNING id, name, description, rql, query_source, is_scheduled,
                   schedule_interval_mins, alert_on_hits, alert_threshold, alert_severity,
                   last_run_at, next_run_at, last_hit_count, run_count, created_at
-        "#,
-        id,
-        tenant_id,
-        payload.name,
-        payload.description,
-        payload.rql,
-        payload.query_source,
-        claims.sub,
+        "#
     )
+    .bind(id)
+    .bind(tenant_id)
+    .bind(&payload.name)
+    .bind(&payload.description)
+    .bind(&payload.rql)
+    .bind(&payload.query_source)
+    .bind(claims.sub)
     .fetch_one(&state.db)
     .await?;
 
@@ -277,7 +279,8 @@ async fn remove_query(
             "Admin access required to delete hunting queries".to_string(),
         ));
     }
-    let result = sqlx::query!("DELETE FROM hunting_queries WHERE id = $1", id)
+    let result = sqlx::query("DELETE FROM hunting_queries WHERE id = $1")
+        .bind(id)
         .execute(&state.db)
         .await?;
     if result.rows_affected() == 0 {

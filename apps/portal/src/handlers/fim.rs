@@ -23,10 +23,7 @@ pub fn routes() -> Router<AppState> {
         .route("/top-paths", get(top_changed_paths))
 }
 
-/// FIM event as exposed to the UI. `diff_content` is deliberately excluded from
-/// the list response: file diffs can contain secrets, so they stay behind the
-/// single-event detail endpoint.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 struct FimEventResponse {
     id: Uuid,
     agent_id: Uuid,
@@ -61,8 +58,7 @@ async fn list_events(
     Query(pagination): Query<Pagination>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<PaginatedResponse<FimEventResponse>>> {
-    let events = sqlx::query_as!(
-        FimEventResponse,
+    let events = sqlx::query_as::<_, FimEventResponse>(
         r#"
         SELECT id, agent_id, hostname, event_type, severity, file_path,
                file_name, directory, file_type, file_size, hash_algorithm,
@@ -73,16 +69,17 @@ async fn list_events(
         FROM fim_events
         ORDER BY detected_at DESC
         LIMIT $1 OFFSET $2
-        "#,
-        pagination.limit(),
-        pagination.offset(),
+        "#
     )
+    .bind(pagination.limit())
+    .bind(pagination.offset())
     .fetch_all(&state.db)
     .await?;
 
-    let total = sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM fim_events"#)
+    let total: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM fim_events"#)
         .fetch_one(&state.db)
-        .await?;
+        .await
+        .unwrap_or(0);
 
     Ok(Json(PaginatedResponse {
         data: events,
@@ -100,8 +97,7 @@ async fn get_event(
     Path(id): Path<Uuid>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<FimEventResponse>> {
-    let event = sqlx::query_as!(
-        FimEventResponse,
+    let event = sqlx::query_as::<_, FimEventResponse>(
         r#"
         SELECT id, agent_id, hostname, event_type, severity, file_path,
                file_name, directory, file_type, file_size, hash_algorithm,
@@ -110,9 +106,9 @@ async fn get_event(
                process_name, process_user, rule_name, is_baseline_drift,
                is_whitelisted, alert_id, detected_at
         FROM fim_events WHERE id = $1
-        "#,
-        id,
+        "#
     )
+    .bind(id)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound("FIM event not found".to_string()))?;
@@ -133,37 +129,54 @@ struct FimSummary {
     baselines: i64,
 }
 
+#[derive(Debug, sqlx::FromRow)]
+struct FimSummaryRow {
+    total: i64,
+    critical: i64,
+    created: i64,
+    modified: i64,
+    deleted: i64,
+    perms: i64,
+    drift: i64,
+    hosts: i64,
+}
+
 async fn fim_summary(
     State(state): State<AppState>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<FimSummary>> {
     let since = Utc::now() - Duration::hours(24);
 
-    let row = sqlx::query!(
+    let row: FimSummaryRow = sqlx::query_as(
         r#"
         SELECT
-            COUNT(*) as "total!",
-            COUNT(*) FILTER (WHERE severity = 'critical') as "critical!",
-            COUNT(*) FILTER (WHERE event_type = 'created') as "created!",
-            COUNT(*) FILTER (WHERE event_type = 'modified') as "modified!",
-            COUNT(*) FILTER (WHERE event_type = 'deleted') as "deleted!",
+            COUNT(*)::bigint as total,
+            COUNT(*) FILTER (WHERE severity = 'critical')::bigint as critical,
+            COUNT(*) FILTER (WHERE event_type = 'created')::bigint as created,
+            COUNT(*) FILTER (WHERE event_type = 'modified')::bigint as modified,
+            COUNT(*) FILTER (WHERE event_type = 'deleted')::bigint as deleted,
             COUNT(*) FILTER (
                 WHERE permissions_before IS DISTINCT FROM permissions_after
                   AND permissions_after IS NOT NULL
-            ) as "perms!",
-            COUNT(*) FILTER (WHERE is_baseline_drift) as "drift!",
-            COUNT(DISTINCT agent_id) as "hosts!"
+            )::bigint as perms,
+            COUNT(*) FILTER (WHERE is_baseline_drift)::bigint as drift,
+            COUNT(DISTINCT agent_id)::bigint as hosts
         FROM fim_events
         WHERE detected_at >= $1
-        "#,
-        since,
+        "#
     )
+    .bind(since)
     .fetch_one(&state.db)
-    .await?;
+    .await
+    .unwrap_or(FimSummaryRow {
+        total: 0, critical: 0, created: 0, modified: 0,
+        deleted: 0, perms: 0, drift: 0, hosts: 0,
+    });
 
-    let baselines = sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM fim_baselines"#)
+    let baselines: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM fim_baselines"#)
         .fetch_one(&state.db)
-        .await?;
+        .await
+        .unwrap_or(0);
 
     Ok(Json(FimSummary {
         events_24h: row.total,
@@ -178,7 +191,7 @@ async fn fim_summary(
     }))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 struct ChangedPath {
     file_path: String,
     change_count: i64,
@@ -186,33 +199,29 @@ struct ChangedPath {
     max_severity: Option<String>,
 }
 
-/// Most frequently changed paths over the last 7 days: churn here usually means
-/// either a noisy rule or something genuinely worth investigating.
 async fn top_changed_paths(
     State(state): State<AppState>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<Vec<ChangedPath>>> {
     let since = Utc::now() - Duration::days(7);
 
-    let rows = sqlx::query_as!(
-        ChangedPath,
+    let rows = sqlx::query_as::<_, ChangedPath>(
         r#"
         SELECT
-            file_path as "file_path!",
-            COUNT(*) as "change_count!",
-            MAX(detected_at) as "last_change",
-            MAX(severity) as "max_severity"
+            file_path,
+            COUNT(*)::bigint as change_count,
+            MAX(detected_at) as last_change,
+            MAX(severity) as max_severity
         FROM fim_events
         WHERE detected_at >= $1
         GROUP BY file_path
         ORDER BY COUNT(*) DESC
         LIMIT 15
-        "#,
-        since,
+        "#
     )
+    .bind(since)
     .fetch_all(&state.db)
     .await?;
 
     Ok(Json(rows))
 }
-

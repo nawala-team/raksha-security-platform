@@ -68,8 +68,7 @@ async fn list_databases(
     State(state): State<AppState>,
     Extension(_claims): Extension<Claims>,
 ) -> AppResult<Json<Vec<DatabaseInstanceResponse>>> {
-    let dbs = sqlx::query_as!(
-        DatabaseInstanceResponse,
+    let dbs = sqlx::query_as::<_, DatabaseInstanceResponse>(
         r#"
         SELECT id, name, db_type, host, port, ssl_enabled, status,
                connections, max_connections, query_rate, replication_lag_ms,
@@ -89,7 +88,6 @@ async fn register_database(
     Extension(claims): Extension<Claims>,
     Json(payload): Json<RegisterDatabaseRequest>,
 ) -> AppResult<Json<DatabaseInstanceResponse>> {
-    // Operator or higher may register a database.
     if !claims.role.has_permission(&UserRole::Operator) {
         return Err(AppError::Forbidden(
             "Operator access required to register databases".to_string(),
@@ -100,11 +98,9 @@ async fn register_database(
     }
 
     let id = new_id();
-    // Store credentials in `password_enc`; never expose them in responses.
     let password_enc = payload.password;
 
-    let db = sqlx::query_as!(
-        DatabaseInstanceResponse,
+    let db = sqlx::query_as::<_, DatabaseInstanceResponse>(
         r#"
         INSERT INTO monitored_databases
             (id, name, db_type, host, port, username, password_enc, ssl_enabled,
@@ -113,17 +109,17 @@ async fn register_database(
         RETURNING id, name, db_type, host, port, ssl_enabled, status,
                   connections, max_connections, query_rate, replication_lag_ms,
                   size_bytes, encrypted, version, alerts, created_at
-        "#,
-        id,
-        payload.name,
-        payload.db_type,
-        payload.host,
-        payload.port as i32,
-        payload.username,
-        password_enc,
-        payload.ssl_enabled,
-        payload.ssl_enabled,
+        "#
     )
+    .bind(id)
+    .bind(&payload.name)
+    .bind(&payload.db_type)
+    .bind(&payload.host)
+    .bind(payload.port as i32)
+    .bind(&payload.username)
+    .bind(&password_enc)
+    .bind(payload.ssl_enabled)
+    .bind(payload.ssl_enabled)
     .fetch_one(&state.db)
     .await?;
 
@@ -135,16 +131,15 @@ async fn get_database(
     Extension(_claims): Extension<Claims>,
     Path(db_id): Path<Uuid>,
 ) -> AppResult<Json<DatabaseInstanceResponse>> {
-    let db = sqlx::query_as!(
-        DatabaseInstanceResponse,
+    let db = sqlx::query_as::<_, DatabaseInstanceResponse>(
         r#"
         SELECT id, name, db_type, host, port, ssl_enabled, status,
                connections, max_connections, query_rate, replication_lag_ms,
                size_bytes, encrypted, version, alerts, created_at
         FROM monitored_databases WHERE id = $1
-        "#,
-        db_id,
+        "#
     )
+    .bind(db_id)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound("Database not found".to_string()))?;
@@ -157,13 +152,13 @@ async fn remove_database(
     Extension(claims): Extension<Claims>,
     Path(db_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    // Admin or higher may remove a monitored database.
     if !claims.role.has_permission(&UserRole::Admin) {
         return Err(AppError::Forbidden(
             "Admin access required to remove databases".to_string(),
         ));
     }
-    let result = sqlx::query!("DELETE FROM monitored_databases WHERE id = $1", db_id)
+    let result = sqlx::query("DELETE FROM monitored_databases WHERE id = $1")
+        .bind(db_id)
         .execute(&state.db)
         .await?;
     if result.rows_affected() == 0 {
@@ -172,18 +167,26 @@ async fn remove_database(
     Ok(Json(serde_json::json!({ "deleted": true, "id": db_id })))
 }
 
+#[derive(Debug, sqlx::FromRow)]
+struct DbMetricsRow {
+    connections: i32,
+    query_rate: i64,
+    replication_lag_ms: Option<i64>,
+    size_bytes: i64,
+}
+
 async fn get_metrics(
     State(state): State<AppState>,
     Extension(_claims): Extension<Claims>,
     Path(db_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let db = sqlx::query!(
+    let db: DbMetricsRow = sqlx::query_as(
         r#"
         SELECT connections, query_rate, replication_lag_ms, size_bytes
         FROM monitored_databases WHERE id = $1
-        "#,
-        db_id,
+        "#
     )
+    .bind(db_id)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound("Database not found".to_string()))?;
@@ -196,4 +199,3 @@ async fn get_metrics(
         "size_bytes": db.size_bytes,
     })))
 }
-

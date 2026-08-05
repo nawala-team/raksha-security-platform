@@ -30,10 +30,10 @@ interface NetworkEvent {
 
 /** Mirrors the portal's `NetworkSummary`. */
 interface NetworkSummary {
-  events_24h: number;
+  total_events_24h: number;
   blocked_24h: number;
+  allowed_24h: number;
   threats_24h: number;
-  port_scans_24h: number;
   bytes_in_24h: number;
   bytes_out_24h: number;
   active_rules: number;
@@ -79,7 +79,7 @@ export default function NetworkPage() {
     {
       label: "Firewall Rules",
       value: formatNumber(summary.data?.active_rules),
-      sub: `${formatNumber(summary.data?.port_scans_24h)} port scans seen`,
+      sub: `${formatNumber(summary.data?.total_events_24h)} events today`,
     },
   ];
 

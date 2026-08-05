@@ -157,10 +157,20 @@ impl AgentConfig {
     }
 
     pub fn default_config_path() -> PathBuf {
+        // Check environment variable first
+        if let Ok(path) = std::env::var("RAKSHA_CONFIG") {
+            return PathBuf::from(path);
+        }
+        
         if cfg!(windows) {
             PathBuf::from(r"C:\ProgramData\Raksha\agent.toml")
         } else if cfg!(target_os = "macos") {
             PathBuf::from("/Library/Application Support/Raksha/agent.toml")
+        } else if cfg!(target_os = "android") {
+            // Android/Termux: use home directory
+            dirs::home_dir()
+                .map(|h| h.join(".config/raksha/agent.toml"))
+                .unwrap_or_else(|| PathBuf::from("/data/data/com.termux/files/home/.config/raksha/agent.toml"))
         } else {
             PathBuf::from("/etc/raksha/agent.toml")
         }

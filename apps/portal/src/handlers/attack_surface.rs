@@ -52,8 +52,7 @@ async fn list_assets(
     State(state): State<AppState>,
     Extension(_claims): Extension<Claims>,
 ) -> AppResult<Json<Vec<AssetResponse>>> {
-    let assets = sqlx::query_as!(
-        AssetResponse,
+    let assets = sqlx::query_as::<_, AssetResponse>(
         r#"
         SELECT id, domain, asset_type, status, risk, details, last_scan_at, created_at
         FROM attack_surface_assets
@@ -72,7 +71,6 @@ async fn add_asset(
     Extension(claims): Extension<Claims>,
     Json(payload): Json<AddAssetRequest>,
 ) -> AppResult<Json<AssetResponse>> {
-    // Operator or higher may add assets.
     if !claims.role.has_permission(&UserRole::Operator) {
         return Err(AppError::Forbidden(
             "Operator access required to add assets".to_string(),
@@ -86,21 +84,20 @@ async fn add_asset(
     let status = payload.status.unwrap_or_else(|| "exposed".to_string());
     let risk = payload.risk.unwrap_or_else(|| "low".to_string());
 
-    let asset = sqlx::query_as!(
-        AssetResponse,
+    let asset = sqlx::query_as::<_, AssetResponse>(
         r#"
         INSERT INTO attack_surface_assets
             (id, domain, asset_type, status, risk, details, last_scan_at, created_at, updated_at)
         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW(), NOW())
         RETURNING id, domain, asset_type, status, risk, details, last_scan_at, created_at
-        "#,
-        id,
-        payload.domain,
-        payload.asset_type,
-        status,
-        risk,
-        payload.details,
+        "#
     )
+    .bind(id)
+    .bind(&payload.domain)
+    .bind(&payload.asset_type)
+    .bind(&status)
+    .bind(&risk)
+    .bind(&payload.details)
     .fetch_one(&state.db)
     .await?;
 
@@ -112,13 +109,13 @@ async fn remove_asset(
     Extension(claims): Extension<Claims>,
     Path(asset_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    // Admin or higher may remove assets.
     if !claims.role.has_permission(&UserRole::Admin) {
         return Err(AppError::Forbidden(
             "Admin access required to remove assets".to_string(),
         ));
     }
-    let result = sqlx::query!("DELETE FROM attack_surface_assets WHERE id = $1", asset_id)
+    let result = sqlx::query("DELETE FROM attack_surface_assets WHERE id = $1")
+        .bind(asset_id)
         .execute(&state.db)
         .await?;
     if result.rows_affected() == 0 {
@@ -131,19 +128,22 @@ async fn asset_summary(
     State(state): State<AppState>,
     Extension(_claims): Extension<Claims>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let total = sqlx::query_scalar!("SELECT COUNT(*) as \"count!\" FROM attack_surface_assets")
+    let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM attack_surface_assets")
         .fetch_one(&state.db)
-        .await?;
-    let critical = sqlx::query_scalar!(
-        "SELECT COUNT(*) as \"count!\" FROM attack_surface_assets WHERE risk = 'critical'"
+        .await
+        .unwrap_or(0);
+    let critical: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM attack_surface_assets WHERE risk = 'critical'"
     )
     .fetch_one(&state.db)
-    .await?;
-    let exposed = sqlx::query_scalar!(
-        "SELECT COUNT(*) as \"count!\" FROM attack_surface_assets WHERE status = 'exposed'"
+    .await
+    .unwrap_or(0);
+    let exposed: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM attack_surface_assets WHERE status = 'exposed'"
     )
     .fetch_one(&state.db)
-    .await?;
+    .await
+    .unwrap_or(0);
 
     Ok(Json(serde_json::json!({
         "total": total,

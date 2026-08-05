@@ -1,3 +1,8 @@
+//! Backup collector module for monitoring backup status and integrity.
+//! These types are prepared for future backup monitoring functionality.
+
+#![allow(dead_code)]
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

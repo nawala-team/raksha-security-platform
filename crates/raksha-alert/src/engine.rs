@@ -4,6 +4,23 @@ use sqlx::PgPool;
 
 use crate::models::{Alert, AlertFilter, CreateAlert};
 
+/// Sanitize input string to prevent XSS - strips HTML tags
+fn sanitize_input(input: &str) -> String {
+    // Remove HTML tags
+    let re = regex::Regex::new(r"<[^>]*>").unwrap();
+    let no_tags = re.replace_all(input, "");
+    // Remove javascript: urls
+    let re2 = regex::Regex::new(r"(?i)javascript:").unwrap();
+    let cleaned = re2.replace_all(&no_tags, "");
+    // Escape remaining special chars
+    cleaned
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#x27;")
+}
+
 #[derive(Clone)]
 pub struct AlertEngine {
     db: PgPool,
@@ -17,6 +34,11 @@ impl AlertEngine {
     pub async fn create_alert(&self, input: CreateAlert) -> AppResult<Alert> {
         let id = new_id();
         let now = chrono::Utc::now();
+        
+        // Sanitize inputs
+        let title = sanitize_input(&input.title);
+        let description = sanitize_input(&input.description);
+        let source = sanitize_input(&input.source);
 
         let alert = sqlx::query_as!(
             Alert,
@@ -31,11 +53,11 @@ impl AlertEngine {
                 created_at, updated_at, resolved_at
             "#,
             id,
-            input.title,
-            input.description,
+            title,
+            description,
             input.severity as _,
             AlertStatus::Open as _,
-            input.source,
+            source,
             input.source_id,
             input.agent_id,
             input.rule_id,

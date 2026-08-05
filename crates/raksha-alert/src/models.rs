@@ -23,6 +23,7 @@ pub struct Alert {
 #[derive(Debug, Clone, Deserialize)]
 pub struct CreateAlert {
     pub title: String,
+    #[serde(default)]
     pub description: String,
     pub severity: AlertSeverity,
     pub source: String,

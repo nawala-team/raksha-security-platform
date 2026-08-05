@@ -6,10 +6,17 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 class ApiClient {
   private baseUrl: string;
   private token: string | null = null;
+  private initialized = false;
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
+    this.initToken();
+  }
 
+  /** Initialize token from localStorage - safe to call multiple times */
+  private initToken() {
+    if (this.initialized) return;
+    
     // Restore token from localStorage on init.
     // Access it via `window` so the guard above actually covers the call:
     // in non-browser environments (SSR, jsdom before setup) the bare
@@ -24,11 +31,13 @@ class ApiClient {
           window.localStorage.removeItem("raksha_auth_token");
         }
       }
+      this.initialized = true;
     }
   }
 
   setToken(token: string) {
     this.token = token;
+    this.initialized = true;
   }
 
   clearToken() {
@@ -39,6 +48,7 @@ class ApiClient {
   }
 
   getToken(): string | null {
+    this.initToken(); // Ensure token is loaded
     return this.token;
   }
 
@@ -46,6 +56,9 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
+    // Ensure token is loaded from localStorage (handles SSR -> client hydration)
+    this.initToken();
+    
     const headers: HeadersInit = {
       "Content-Type": "application/json",
       ...options.headers,

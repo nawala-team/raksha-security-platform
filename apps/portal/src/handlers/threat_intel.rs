@@ -1,7 +1,10 @@
+//! Threat Intelligence API handlers
+
+#![allow(dead_code)]
+
 use axum::{extract::State, Extension, Json, Router, routing};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use raksha_auth::Claims;
 use raksha_core::error::{AppError, AppResult};
@@ -43,6 +46,7 @@ pub struct AddIOCRequest {
 
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .route("/", routing::get(list_feeds))
         .route("/feeds", routing::get(list_feeds))
         .route("/feeds/sync", routing::post(sync_feeds))
         .route("/iocs", routing::get(list_iocs))
@@ -94,13 +98,16 @@ fn to_response(r: IocRow) -> IOCResponse {
         ioc_type: r.indicator_type.unwrap_or_else(|| "unknown".into()),
         value: r.value,
         source: r.source.unwrap_or_else(|| "manual".into()),
-        severity: r.severity.unwrap_or_else(|| "low".into()),
-        confidence: r.confidence.map(|c| c as f64).unwrap_or(0.0),
+        severity: r.severity.unwrap_or_else(|| "medium".into()),
+        confidence: r.confidence.map(|c| c as f64).unwrap_or(50.0),
         tags: r.tags.unwrap_or_default(),
-        first_seen: r.first_seen_at.unwrap_or_else(Utc::now).to_rfc3339(),
+        first_seen: r
+            .first_seen_at
+            .unwrap_or(r.created_at)
+            .to_rfc3339(),
         last_seen: r
             .last_seen_at
-            .unwrap_or_else(Utc::now)
+            .unwrap_or(r.created_at)
             .to_rfc3339(),
     }
 }
@@ -144,7 +151,6 @@ async fn add_ioc(
             "Operator access required to add indicators".to_string(),
         ));
     }
-    // Map friendly UI types to the DB check-constraint enum values.
     let indicator_type = match payload.ioc_type.as_str() {
         "ip" => "ip_v4",
         "hash" => "file_hash_sha256",
@@ -154,20 +160,20 @@ async fn add_ioc(
 
     let id = new_id();
     let now = Utc::now();
-    let result = sqlx::query!(
+    let result = sqlx::query(
         r#"
         INSERT INTO threat_indicators
             (id, indicator_type, value, value_normalized, severity, confidence,
              tags, first_seen_at, last_seen_at, created_at, updated_at)
         VALUES ($1, $2, $3, lower($3), $4, 100, $5, $6, $6, $6, $6)
-        "#,
-        id,
-        indicator_type,
-        payload.value,
-        payload.severity,
-        &payload.tags,
-        now,
+        "#
     )
+    .bind(id)
+    .bind(&indicator_type)
+    .bind(&payload.value)
+    .bind(&payload.severity)
+    .bind(&payload.tags)
+    .bind(now)
     .execute(&state.db)
     .await;
 

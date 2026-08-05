@@ -2,7 +2,7 @@
 
 use axum::{
     extract::{Path, Query, State},
-    routing::{get, patch, post},
+    routing::{get, patch},
     Json, Router,
 };
 use chrono::{DateTime, Utc};
@@ -25,7 +25,7 @@ pub fn routes() -> Router<AppState> {
         .route("/:id/tasks", get(get_tasks))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 struct IncidentResponse {
     id: Uuid,
     incident_number: String,
@@ -59,8 +59,7 @@ async fn list_incidents(
     Query(pagination): Query<Pagination>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<PaginatedResponse<IncidentResponse>>> {
-    let incidents = sqlx::query_as!(
-        IncidentResponse,
+    let incidents = sqlx::query_as::<_, IncidentResponse>(
         r#"
         SELECT id, incident_number, title, description, severity, status,
                priority, category, classification, commander_id, assigned_team,
@@ -71,16 +70,17 @@ async fn list_incidents(
         FROM incidents
         ORDER BY created_at DESC
         LIMIT $1 OFFSET $2
-        "#,
-        pagination.limit(),
-        pagination.offset(),
+        "#
     )
+    .bind(pagination.limit())
+    .bind(pagination.offset())
     .fetch_all(&state.db)
     .await?;
 
-    let total = sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM incidents"#)
+    let total: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM incidents"#)
         .fetch_one(&state.db)
-        .await?;
+        .await
+        .unwrap_or(0);
 
     Ok(Json(PaginatedResponse {
         data: incidents,
@@ -98,8 +98,7 @@ async fn get_incident(
     Path(id): Path<Uuid>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<IncidentResponse>> {
-    let incident = sqlx::query_as!(
-        IncidentResponse,
+    let incident = sqlx::query_as::<_, IncidentResponse>(
         r#"
         SELECT id, incident_number, title, description, severity, status,
                priority, category, classification, commander_id, assigned_team,
@@ -108,9 +107,9 @@ async fn get_incident(
                sla_breached, first_detected_at, first_response_at,
                contained_at, closed_at, created_at, updated_at
         FROM incidents WHERE id = $1
-        "#,
-        id,
+        "#
     )
+    .bind(id)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound("Incident not found".to_string()))?;
@@ -118,15 +117,14 @@ async fn get_incident(
     Ok(Json(incident))
 }
 
-#[derive(Debug, Serialize)]
-struct TimelineEntry {
+#[derive(Debug, Serialize, sqlx::FromRow)]
+struct TimelineEvent {
     id: Uuid,
     incident_id: Uuid,
-    actor_id: Option<Uuid>,
     event_type: String,
     title: String,
-    content: Option<String>,
-    is_automated: bool,
+    description: Option<String>,
+    actor_id: Option<Uuid>,
     occurred_at: DateTime<Utc>,
 }
 
@@ -134,25 +132,23 @@ async fn get_timeline(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
     _claims: axum::Extension<Claims>,
-) -> AppResult<Json<Vec<TimelineEntry>>> {
-    let entries = sqlx::query_as!(
-        TimelineEntry,
+) -> AppResult<Json<Vec<TimelineEvent>>> {
+    let events = sqlx::query_as::<_, TimelineEvent>(
         r#"
-        SELECT id, incident_id, actor_id, event_type, title, content,
-               is_automated, occurred_at
+        SELECT id, incident_id, event_type, title, description, actor_id, occurred_at
         FROM incident_timeline
         WHERE incident_id = $1
         ORDER BY occurred_at DESC
-        "#,
-        id,
+        "#
     )
+    .bind(id)
     .fetch_all(&state.db)
     .await?;
 
-    Ok(Json(entries))
+    Ok(Json(events))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 struct IncidentTask {
     id: Uuid,
     incident_id: Uuid,
@@ -160,10 +156,9 @@ struct IncidentTask {
     description: Option<String>,
     status: String,
     priority: String,
-    assigned_to: Option<Uuid>,
+    assignee_id: Option<Uuid>,
     due_at: Option<DateTime<Utc>>,
     completed_at: Option<DateTime<Utc>>,
-    completed_by: Option<Uuid>,
     created_at: DateTime<Utc>,
 }
 
@@ -172,17 +167,16 @@ async fn get_tasks(
     Path(id): Path<Uuid>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<Vec<IncidentTask>>> {
-    let tasks = sqlx::query_as!(
-        IncidentTask,
+    let tasks = sqlx::query_as::<_, IncidentTask>(
         r#"
         SELECT id, incident_id, title, description, status, priority,
-               assigned_to, due_at, completed_at, completed_by, created_at
+               assignee_id, due_at, completed_at, created_at
         FROM incident_tasks
         WHERE incident_id = $1
-        ORDER BY created_at
-        "#,
-        id,
+        ORDER BY priority, created_at
+        "#
     )
+    .bind(id)
     .fetch_all(&state.db)
     .await?;
 
@@ -193,49 +187,60 @@ async fn get_tasks(
 struct IncidentSummary {
     total: i64,
     open: i64,
+    in_progress: i64,
+    contained: i64,
+    closed: i64,
     critical: i64,
+    high: i64,
     sla_breached: i64,
-    unassigned: i64,
-    closed_last_30d: i64,
-    /// Mean time to first response, in minutes, over responded incidents.
-    mttr_minutes: Option<f64>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct IncidentSummaryRow {
+    total: i64,
+    open: i64,
+    in_progress: i64,
+    contained: i64,
+    closed: i64,
+    critical: i64,
+    high: i64,
+    sla_breached: i64,
 }
 
 async fn incident_summary(
     State(state): State<AppState>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<IncidentSummary>> {
-    let cutoff = Utc::now() - chrono::Duration::days(30);
-
-    let row = sqlx::query!(
+    let row: IncidentSummaryRow = sqlx::query_as(
         r#"
         SELECT
-            COUNT(*) as "total!",
-            COUNT(*) FILTER (WHERE status NOT IN ('closed', 'resolved')) as "open!",
-            COUNT(*) FILTER (WHERE severity = 'critical') as "critical!",
-            COUNT(*) FILTER (WHERE sla_breached) as "breached!",
-            COUNT(*) FILTER (WHERE commander_id IS NULL) as "unassigned!",
-            COUNT(*) FILTER (WHERE closed_at IS NOT NULL AND closed_at >= $1) as "closed_30d!",
-            AVG(
-                EXTRACT(EPOCH FROM (first_response_at - first_detected_at)) / 60.0
-            ) FILTER (
-                WHERE first_response_at IS NOT NULL AND first_detected_at IS NOT NULL
-            )::float8 as "mttr"
+            COUNT(*)::bigint as total,
+            COUNT(*) FILTER (WHERE status = 'open')::bigint as open,
+            COUNT(*) FILTER (WHERE status = 'in_progress')::bigint as in_progress,
+            COUNT(*) FILTER (WHERE status = 'contained')::bigint as contained,
+            COUNT(*) FILTER (WHERE status = 'closed')::bigint as closed,
+            COUNT(*) FILTER (WHERE severity = 'critical')::bigint as critical,
+            COUNT(*) FILTER (WHERE severity = 'high')::bigint as high,
+            COUNT(*) FILTER (WHERE sla_breached)::bigint as sla_breached
         FROM incidents
-        "#,
-        cutoff,
+        "#
     )
     .fetch_one(&state.db)
-    .await?;
+    .await
+    .unwrap_or(IncidentSummaryRow {
+        total: 0, open: 0, in_progress: 0, contained: 0, closed: 0,
+        critical: 0, high: 0, sla_breached: 0,
+    });
 
     Ok(Json(IncidentSummary {
         total: row.total,
         open: row.open,
+        in_progress: row.in_progress,
+        contained: row.contained,
+        closed: row.closed,
         critical: row.critical,
-        sla_breached: row.breached,
-        unassigned: row.unassigned,
-        closed_last_30d: row.closed_30d,
-        mttr_minutes: row.mttr.map(|v| v.round()),
+        high: row.high,
+        sla_breached: row.sla_breached,
     }))
 }
 
@@ -254,19 +259,14 @@ struct CreateIncidentRequest {
     impact_scope: Option<String>,
 }
 
-fn default_severity() -> String {
-    "medium".to_string()
-}
-fn default_priority() -> String {
-    "medium".to_string()
-}
+fn default_severity() -> String { "medium".to_string() }
+fn default_priority() -> String { "medium".to_string() }
 
 async fn create_incident(
     State(state): State<AppState>,
     axum::Extension(claims): axum::Extension<Claims>,
     Json(payload): Json<CreateIncidentRequest>,
 ) -> AppResult<Json<IncidentResponse>> {
-    // Operator or higher may create incidents.
     if !claims.role.has_permission(&UserRole::Operator) {
         return Err(AppError::Forbidden(
             "Operator access required to create incidents".to_string(),
@@ -277,11 +277,9 @@ async fn create_incident(
     }
 
     let id = new_id();
-    // Keep within the incident_number VARCHAR(20) limit.
     let incident_number = format!("INC-{}", &id.to_string()[..8].to_uppercase());
 
-    let incident = sqlx::query_as!(
-        IncidentResponse,
+    let incident = sqlx::query_as::<_, IncidentResponse>(
         r#"
         INSERT INTO incidents (id, incident_number, title, description, severity, status, priority,
                                category, impact_scope, created_at, updated_at)
@@ -292,16 +290,16 @@ async fn create_incident(
                   mitre_tactics, mitre_techniques, attack_vector, root_cause,
                   sla_breached, first_detected_at, first_response_at,
                   contained_at, closed_at, created_at, updated_at
-        "#,
-        id,
-        incident_number,
-        payload.title,
-        payload.description,
-        payload.severity,
-        payload.priority,
-        payload.category,
-        payload.impact_scope,
+        "#
     )
+    .bind(id)
+    .bind(&incident_number)
+    .bind(&payload.title)
+    .bind(&payload.description)
+    .bind(&payload.severity)
+    .bind(&payload.priority)
+    .bind(&payload.category)
+    .bind(&payload.impact_scope)
     .fetch_one(&state.db)
     .await?;
 
@@ -327,8 +325,7 @@ async fn update_incident_status(
 
     let status = payload.status;
     let incident = if status == "closed" {
-        sqlx::query_as!(
-            IncidentResponse,
+        sqlx::query_as::<_, IncidentResponse>(
             r#"
             UPDATE incidents SET status = $2, closed_at = NOW(), updated_at = NOW()
             WHERE id = $1
@@ -338,15 +335,14 @@ async fn update_incident_status(
                       mitre_tactics, mitre_techniques, attack_vector, root_cause,
                       sla_breached, first_detected_at, first_response_at,
                       contained_at, closed_at, created_at, updated_at
-            "#,
-            id,
-            status,
+            "#
         )
+        .bind(id)
+        .bind(&status)
         .fetch_optional(&state.db)
         .await?
     } else {
-        sqlx::query_as!(
-            IncidentResponse,
+        sqlx::query_as::<_, IncidentResponse>(
             r#"
             UPDATE incidents SET status = $2, updated_at = NOW()
             WHERE id = $1
@@ -356,10 +352,10 @@ async fn update_incident_status(
                       mitre_tactics, mitre_techniques, attack_vector, root_cause,
                       sla_breached, first_detected_at, first_response_at,
                       contained_at, closed_at, created_at, updated_at
-            "#,
-            id,
-            status,
+            "#
         )
+        .bind(id)
+        .bind(&status)
         .fetch_optional(&state.db)
         .await?
     }

@@ -26,7 +26,7 @@ export default function TenantsPage() {
   const { items, loading, error, refetch } = useApiList<TenantRow>(() => api.tenants.list());
 
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: "", slug: "" });
+  const [form, setForm] = useState({ name: "", slug: "", contact_email: "" });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -34,9 +34,13 @@ export default function TenantsPage() {
     setBusy(true);
     setMessage(null);
     try {
-      await api.tenants.create({ name: form.name, slug: form.slug });
+      await api.tenants.create({ 
+        name: form.name, 
+        slug: form.slug,
+        contact_email: form.contact_email 
+      });
       setShowCreate(false);
-      setForm({ name: "", slug: "" });
+      setForm({ name: "", slug: "", contact_email: "" });
       refetch();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Failed to create tenant");
@@ -95,7 +99,7 @@ export default function TenantsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="tenant-name">Tenant Name</Label>
                 <Input id="tenant-name" placeholder="Acme Corp" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -104,10 +108,14 @@ export default function TenantsPage() {
                 <Label htmlFor="tenant-slug">Slug</Label>
                 <Input id="tenant-slug" placeholder="acme-corp" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="tenant-email">Contact Email</Label>
+                <Input id="tenant-email" type="email" placeholder="admin@acme.com" value={form.contact_email} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} />
+              </div>
             </div>
             {message && <p className="text-sm text-red-400">{message}</p>}
             <div className="flex gap-2">
-              <Button onClick={submitCreate} size="sm" disabled={busy || !form.name || !form.slug}>
+              <Button onClick={submitCreate} size="sm" disabled={busy || !form.name || !form.slug || !form.contact_email}>
                 {busy ? "Creating..." : "Create"}
               </Button>
               <Button variant="outline" size="sm" onClick={() => setShowCreate(false)}>Cancel</Button>

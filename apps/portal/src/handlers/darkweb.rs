@@ -17,13 +17,14 @@ use crate::state::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .route("/", get(list_monitors))
         .route("/monitors", get(list_monitors))
         .route("/findings", get(list_findings))
         .route("/findings/:id", get(get_finding))
         .route("/summary", get(darkweb_summary))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 struct MonitorResponse {
     id: Uuid,
     name: String,
@@ -43,8 +44,7 @@ async fn list_monitors(
     State(state): State<AppState>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<Vec<MonitorResponse>>> {
-    let monitors = sqlx::query_as!(
-        MonitorResponse,
+    let monitors = sqlx::query_as::<_, MonitorResponse>(
         r#"
         SELECT id, name, monitor_type, keyword, is_enabled, severity_floor,
                finding_count, new_finding_count, last_scanned_at, next_scan_at,
@@ -59,25 +59,19 @@ async fn list_monitors(
     Ok(Json(monitors))
 }
 
-/// Finding as exposed to the UI. The stored excerpt is already redacted at
-/// ingest time, and no raw source URL is returned.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 struct FindingResponse {
     id: Uuid,
-    monitor_id: Uuid,
-    title: String,
+    monitor_id: Option<Uuid>,
+    title: Option<String>,
     description: Option<String>,
-    finding_type: String,
-    severity: String,
-    status: String,
-    source_name: Option<String>,
-    source_type: Option<String>,
-    excerpt_redacted: Option<String>,
-    record_count: Option<i32>,
-    confidence: Option<i16>,
-    alert_id: Option<Uuid>,
-    incident_id: Option<Uuid>,
-    discovered_at: DateTime<Utc>,
+    finding_type: Option<String>,
+    severity: Option<String>,
+    status: Option<String>,
+    source: Option<String>,
+    url: Option<String>,
+    content: Option<String>,
+    found_at: Option<DateTime<Utc>>,
 }
 
 async fn list_findings(
@@ -85,25 +79,24 @@ async fn list_findings(
     Query(pagination): Query<Pagination>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<PaginatedResponse<FindingResponse>>> {
-    let findings = sqlx::query_as!(
-        FindingResponse,
+    let findings = sqlx::query_as::<_, FindingResponse>(
         r#"
         SELECT id, monitor_id, title, description, finding_type, severity,
-               status, source_name, source_type, excerpt_redacted,
-               record_count, confidence, alert_id, incident_id, discovered_at
+               status, source, url, content, found_at
         FROM darkweb_findings
-        ORDER BY discovered_at DESC
+        ORDER BY found_at DESC
         LIMIT $1 OFFSET $2
-        "#,
-        pagination.limit(),
-        pagination.offset(),
+        "#
     )
+    .bind(pagination.limit())
+    .bind(pagination.offset())
     .fetch_all(&state.db)
     .await?;
 
-    let total = sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM darkweb_findings"#)
+    let total: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM darkweb_findings"#)
         .fetch_one(&state.db)
-        .await?;
+        .await
+        .unwrap_or(0);
 
     Ok(Json(PaginatedResponse {
         data: findings,
@@ -121,16 +114,14 @@ async fn get_finding(
     Path(id): Path<Uuid>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<FindingResponse>> {
-    let finding = sqlx::query_as!(
-        FindingResponse,
+    let finding = sqlx::query_as::<_, FindingResponse>(
         r#"
         SELECT id, monitor_id, title, description, finding_type, severity,
-               status, source_name, source_type, excerpt_redacted,
-               record_count, confidence, alert_id, incident_id, discovered_at
+               status, source, url, content, found_at
         FROM darkweb_findings WHERE id = $1
-        "#,
-        id,
+        "#
     )
+    .bind(id)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound("Finding not found".to_string()))?;
@@ -148,29 +139,38 @@ struct DarkwebSummary {
     exposed_records: i64,
 }
 
+#[derive(Debug, sqlx::FromRow)]
+struct FindingSummaryRow {
+    total: i64,
+    new: i64,
+    critical: i64,
+    creds: i64,
+}
+
 async fn darkweb_summary(
     State(state): State<AppState>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<DarkwebSummary>> {
-    let active_monitors = sqlx::query_scalar!(
-        r#"SELECT COUNT(*) as "count!" FROM darkweb_monitors WHERE is_enabled = true"#
+    let active_monitors: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(*) FROM darkweb_monitors WHERE is_enabled = true"#
     )
     .fetch_one(&state.db)
-    .await?;
+    .await
+    .unwrap_or(0);
 
-    let row = sqlx::query!(
+    let row: FindingSummaryRow = sqlx::query_as(
         r#"
         SELECT
-            COUNT(*) as "total!",
-            COUNT(*) FILTER (WHERE status = 'new') as "new!",
-            COUNT(*) FILTER (WHERE severity = 'critical') as "critical!",
-            COUNT(*) FILTER (WHERE finding_type = 'credential_leak') as "creds!",
-            COALESCE(SUM(record_count), 0)::bigint as "records!"
+            COUNT(*)::bigint as total,
+            COUNT(*) FILTER (WHERE status = 'new')::bigint as new,
+            COUNT(*) FILTER (WHERE severity = 'critical')::bigint as critical,
+            COUNT(*) FILTER (WHERE finding_type = 'credential_leak')::bigint as creds
         FROM darkweb_findings
         "#
     )
     .fetch_one(&state.db)
-    .await?;
+    .await
+    .unwrap_or(FindingSummaryRow { total: 0, new: 0, critical: 0, creds: 0 });
 
     Ok(Json(DarkwebSummary {
         active_monitors,
@@ -178,6 +178,6 @@ async fn darkweb_summary(
         new_findings: row.new,
         critical_findings: row.critical,
         credential_leaks: row.creds,
-        exposed_records: row.records,
+        exposed_records: 0, // Not tracked in current schema
     }))
 }

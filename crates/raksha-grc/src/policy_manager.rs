@@ -5,7 +5,7 @@
 
 use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::PgPool;
-use tracing::{info, warn};
+use tracing::info;
 use uuid::Uuid;
 
 use crate::models::{Id, Policy, PolicyAcknowledgment, PolicyStatus};

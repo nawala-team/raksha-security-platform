@@ -1,3 +1,7 @@
+//! WebSocket handler for real-time communication
+
+#![allow(dead_code)]
+
 use std::sync::Arc;
 
 use axum::{

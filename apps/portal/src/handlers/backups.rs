@@ -2,10 +2,10 @@
 
 use axum::{
     extract::{Path, Query, State},
-    routing::{delete, get, patch, post},
+    routing::{get, patch},
     Json, Router,
 };
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -17,6 +17,7 @@ use crate::state::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .route("/", get(list_jobs))
         .route("/jobs", get(list_jobs).post(create_job))
         .route("/jobs/:id", get(get_job).delete(remove_job))
         .route("/jobs/:id/status", patch(toggle_job))
@@ -25,7 +26,7 @@ pub fn routes() -> Router<AppState> {
         .route("/summary", get(backup_summary))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 struct BackupJobResponse {
     id: Uuid,
     name: String,
@@ -55,8 +56,7 @@ async fn list_jobs(
     State(state): State<AppState>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<Vec<BackupJobResponse>>> {
-    let jobs = sqlx::query_as!(
-        BackupJobResponse,
+    let jobs = sqlx::query_as::<_, BackupJobResponse>(
         r#"
         SELECT id, name, description, backup_type, target_kind, source_ref,
                destination, destination_path, server_id, is_enabled,
@@ -78,8 +78,7 @@ async fn get_job(
     Path(id): Path<Uuid>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<BackupJobResponse>> {
-    let job = sqlx::query_as!(
-        BackupJobResponse,
+    let job = sqlx::query_as::<_, BackupJobResponse>(
         r#"
         SELECT id, name, description, backup_type, target_kind, source_ref,
                destination, destination_path, server_id, is_enabled,
@@ -87,9 +86,9 @@ async fn get_job(
                encryption_algo, verify_after_backup, last_status, last_run_at,
                next_run_at, last_size_bytes, success_count, failure_count, created_at
         FROM backup_jobs WHERE id = $1
-        "#,
-        id,
+        "#
     )
+    .bind(id)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound("Backup job not found".to_string()))?;
@@ -97,23 +96,19 @@ async fn get_job(
     Ok(Json(job))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 struct BackupRunResponse {
     id: Uuid,
-    job_id: Uuid,
-    trigger: String,
-    status: String,
+    job_id: Option<Uuid>,
+    trigger: Option<String>,
+    status: Option<String>,
     size_bytes: Option<i64>,
     compressed_bytes: Option<i64>,
-    file_count: Option<i64>,
+    file_count: Option<i32>,
     duration_secs: Option<i32>,
     checksum: Option<String>,
-    verified: bool,
-    verified_at: Option<DateTime<Utc>>,
-    restore_tested: bool,
     error_message: Option<String>,
-    expires_at: Option<DateTime<Utc>>,
-    started_at: DateTime<Utc>,
+    started_at: Option<DateTime<Utc>>,
     completed_at: Option<DateTime<Utc>>,
 }
 
@@ -122,25 +117,25 @@ async fn list_runs(
     Query(pagination): Query<Pagination>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<PaginatedResponse<BackupRunResponse>>> {
-    let runs = sqlx::query_as!(
-        BackupRunResponse,
+    let runs = sqlx::query_as::<_, BackupRunResponse>(
         r#"
         SELECT id, job_id, trigger, status, size_bytes, compressed_bytes,
-               file_count, duration_secs, checksum, verified, verified_at,
-               restore_tested, error_message, expires_at, started_at, completed_at
+               file_count, duration_secs, checksum, error_message,
+               started_at, completed_at
         FROM backup_runs
-        ORDER BY started_at DESC
+        ORDER BY started_at DESC NULLS LAST
         LIMIT $1 OFFSET $2
-        "#,
-        pagination.limit(),
-        pagination.offset(),
+        "#
     )
+    .bind(pagination.limit())
+    .bind(pagination.offset())
     .fetch_all(&state.db)
     .await?;
 
-    let total = sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM backup_runs"#)
+    let total: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM backup_runs"#)
         .fetch_one(&state.db)
-        .await?;
+        .await
+        .unwrap_or(0);
 
     Ok(Json(PaginatedResponse {
         data: runs,
@@ -155,77 +150,113 @@ async fn list_runs(
 
 async fn list_job_runs(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path(job_id): Path<Uuid>,
+    Query(pagination): Query<Pagination>,
     _claims: axum::Extension<Claims>,
-) -> AppResult<Json<Vec<BackupRunResponse>>> {
-    let runs = sqlx::query_as!(
-        BackupRunResponse,
+) -> AppResult<Json<PaginatedResponse<BackupRunResponse>>> {
+    let runs = sqlx::query_as::<_, BackupRunResponse>(
         r#"
         SELECT id, job_id, trigger, status, size_bytes, compressed_bytes,
-               file_count, duration_secs, checksum, verified, verified_at,
-               restore_tested, error_message, expires_at, started_at, completed_at
+               file_count, duration_secs, checksum, error_message,
+               started_at, completed_at
         FROM backup_runs
         WHERE job_id = $1
-        ORDER BY started_at DESC
-        LIMIT 50
-        "#,
-        id,
+        ORDER BY started_at DESC NULLS LAST
+        LIMIT $2 OFFSET $3
+        "#
     )
+    .bind(job_id)
+    .bind(pagination.limit())
+    .bind(pagination.offset())
     .fetch_all(&state.db)
     .await?;
 
-    Ok(Json(runs))
+    let total: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM backup_runs WHERE job_id = $1"#)
+        .bind(job_id)
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or(0);
+
+    Ok(Json(PaginatedResponse {
+        data: runs,
+        meta: PaginationMeta {
+            page: pagination.page,
+            per_page: pagination.per_page,
+            total,
+            total_pages: ((total as f64) / (pagination.limit() as f64)).ceil() as u32,
+        },
+    }))
 }
 
 #[derive(Debug, Serialize)]
 struct BackupSummary {
     total_jobs: i64,
     enabled_jobs: i64,
-    failing_jobs: i64,
-    never_run_jobs: i64,
-    /// Jobs storing data without encryption: a posture gap worth surfacing.
-    unencrypted_jobs: i64,
-    total_backup_bytes: i64,
-    unverified_runs: i64,
+    disabled_jobs: i64,
+    runs_24h: i64,
+    successful_24h: i64,
+    failed_24h: i64,
+    total_bytes_24h: i64,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct JobSummaryRow {
+    total: i64,
+    enabled: i64,
+    disabled: i64,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct RunSummaryRow {
+    total: i64,
+    success: i64,
+    failed: i64,
+    bytes: i64,
 }
 
 async fn backup_summary(
     State(state): State<AppState>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<BackupSummary>> {
-    let jobs = sqlx::query!(
+    let since = Utc::now() - Duration::hours(24);
+
+    let jobs: JobSummaryRow = sqlx::query_as(
         r#"
         SELECT
-            COUNT(*) as "total!",
-            COUNT(*) FILTER (WHERE is_enabled) as "enabled!",
-            COUNT(*) FILTER (WHERE last_status = 'failed') as "failing!",
-            COUNT(*) FILTER (WHERE last_run_at IS NULL) as "never_run!",
-            COUNT(*) FILTER (WHERE NOT encryption_enabled) as "unencrypted!"
+            COUNT(*)::bigint as total,
+            COUNT(*) FILTER (WHERE is_enabled)::bigint as enabled,
+            COUNT(*) FILTER (WHERE NOT is_enabled)::bigint as disabled
         FROM backup_jobs
         "#
     )
     .fetch_one(&state.db)
-    .await?;
+    .await
+    .unwrap_or(JobSummaryRow { total: 0, enabled: 0, disabled: 0 });
 
-    let runs = sqlx::query!(
+    let runs: RunSummaryRow = sqlx::query_as(
         r#"
         SELECT
-            COALESCE(SUM(size_bytes), 0)::bigint as "total_bytes!",
-            COUNT(*) FILTER (WHERE status = 'success' AND NOT verified) as "unverified!"
+            COUNT(*)::bigint as total,
+            COUNT(*) FILTER (WHERE status = 'completed')::bigint as success,
+            COUNT(*) FILTER (WHERE status = 'failed')::bigint as failed,
+            COALESCE(SUM(size_bytes), 0)::bigint as bytes
         FROM backup_runs
+        WHERE started_at >= $1
         "#
     )
+    .bind(since)
     .fetch_one(&state.db)
-    .await?;
+    .await
+    .unwrap_or(RunSummaryRow { total: 0, success: 0, failed: 0, bytes: 0 });
 
     Ok(Json(BackupSummary {
         total_jobs: jobs.total,
         enabled_jobs: jobs.enabled,
-        failing_jobs: jobs.failing,
-        never_run_jobs: jobs.never_run,
-        unencrypted_jobs: jobs.unencrypted,
-        total_backup_bytes: runs.total_bytes,
-        unverified_runs: runs.unverified,
+        disabled_jobs: jobs.disabled,
+        runs_24h: runs.total,
+        successful_24h: runs.success,
+        failed_24h: runs.failed,
+        total_bytes_24h: runs.bytes,
     }))
 }
 
@@ -234,42 +265,26 @@ struct CreateJobRequest {
     name: String,
     #[serde(default)]
     description: Option<String>,
-    #[serde(default = "default_type")]
+    #[serde(default = "default_backup_type")]
     backup_type: String,
     #[serde(default = "default_target_kind")]
     target_kind: String,
-    #[serde(default = "default_source_ref")]
     source_ref: String,
-    #[serde(default = "default_dest")]
     destination: String,
+    #[serde(default = "default_true")]
+    is_enabled: bool,
     #[serde(default = "default_retention")]
     retention_days: i32,
-    #[serde(default = "default_true")]
-    encryption_enabled: bool,
-    #[serde(default = "default_true")]
-    verify_after_backup: bool,
     #[serde(default)]
-    is_enabled: bool,
+    encryption_enabled: bool,
+    #[serde(default)]
+    verify_after_backup: bool,
 }
 
-fn default_type() -> String {
-    "full".to_string()
-}
-fn default_target_kind() -> String {
-    "database".to_string()
-}
-fn default_source_ref() -> String {
-    "/data".to_string()
-}
-fn default_dest() -> String {
-    "local".to_string()
-}
-fn default_retention() -> i32 {
-    30
-}
-fn default_true() -> bool {
-    true
-}
+fn default_backup_type() -> String { "full".to_string() }
+fn default_target_kind() -> String { "directory".to_string() }
+fn default_true() -> bool { true }
+fn default_retention() -> i32 { 30 }
 
 async fn create_job(
     State(state): State<AppState>,
@@ -286,10 +301,8 @@ async fn create_job(
     }
 
     let id = new_id();
-    // Use the default tenant for now; multi-tenancy can derive this from claims later.
     let tenant_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-    let job = sqlx::query_as!(
-        BackupJobResponse,
+    let job = sqlx::query_as::<_, BackupJobResponse>(
         r#"
         INSERT INTO backup_jobs
             (id, tenant_id, name, description, backup_type, target_kind, source_ref, destination,
@@ -301,20 +314,20 @@ async fn create_job(
                   schedule_interval_mins, retention_days, encryption_enabled,
                   encryption_algo, verify_after_backup, last_status, last_run_at,
                   next_run_at, last_size_bytes, success_count, failure_count, created_at
-        "#,
-        id,
-        tenant_id,
-        payload.name,
-        payload.description,
-        payload.backup_type,
-        payload.target_kind,
-        payload.source_ref,
-        payload.destination,
-        payload.is_enabled,
-        payload.retention_days,
-        payload.encryption_enabled,
-        payload.verify_after_backup,
+        "#
     )
+    .bind(id)
+    .bind(tenant_id)
+    .bind(&payload.name)
+    .bind(&payload.description)
+    .bind(&payload.backup_type)
+    .bind(&payload.target_kind)
+    .bind(&payload.source_ref)
+    .bind(&payload.destination)
+    .bind(payload.is_enabled)
+    .bind(payload.retention_days)
+    .bind(payload.encryption_enabled)
+    .bind(payload.verify_after_backup)
     .fetch_one(&state.db)
     .await?;
 
@@ -333,8 +346,7 @@ async fn toggle_job(
         ));
     }
     let enabled = payload.get("is_enabled").and_then(|v| v.as_bool()).unwrap_or(true);
-    let job = sqlx::query_as!(
-        BackupJobResponse,
+    let job = sqlx::query_as::<_, BackupJobResponse>(
         r#"
         UPDATE backup_jobs SET is_enabled = $2, updated_at = NOW()
         WHERE id = $1
@@ -343,10 +355,10 @@ async fn toggle_job(
                   schedule_interval_mins, retention_days, encryption_enabled,
                   encryption_algo, verify_after_backup, last_status, last_run_at,
                   next_run_at, last_size_bytes, success_count, failure_count, created_at
-        "#,
-        id,
-        enabled,
+        "#
     )
+    .bind(id)
+    .bind(enabled)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound("Backup job not found".to_string()))?;
@@ -364,7 +376,8 @@ async fn remove_job(
             "Admin access required to delete backup jobs".to_string(),
         ));
     }
-    let result = sqlx::query!("DELETE FROM backup_jobs WHERE id = $1", id)
+    let result = sqlx::query("DELETE FROM backup_jobs WHERE id = $1")
+        .bind(id)
         .execute(&state.db)
         .await?;
     if result.rows_affected() == 0 {
@@ -372,4 +385,3 @@ async fn remove_job(
     }
     Ok(Json(serde_json::json!({ "deleted": true, "id": id })))
 }
-

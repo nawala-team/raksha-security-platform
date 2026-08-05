@@ -1,6 +1,8 @@
 //! Agent enrollment service - business logic layer
 
-use chrono::{Duration, Utc};
+#![allow(dead_code)]
+
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
