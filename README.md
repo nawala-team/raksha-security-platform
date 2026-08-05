@@ -221,10 +221,24 @@ Each organization deploys its **own independent Raksha portal** — no shared in
 
 | Platform | Architecture | Service Manager |
 |----------|-------------|-----------------|
+| **Linux** |||
 | Ubuntu / Debian | x86_64, ARM64 | systemd |
-| RHEL / CentOS / Rocky | x86_64, ARM64 | systemd |
-| Amazon Linux | x86_64, ARM64 | systemd |
+| RHEL / CentOS / Rocky / AlmaLinux | x86_64, ARM64 | systemd |
+| Amazon Linux / Oracle Linux | x86_64, ARM64 | systemd |
+| Fedora / SUSE / openSUSE | x86_64, ARM64 | systemd |
+| Arch Linux / Gentoo | x86_64 | systemd |
+| **Container OS** |||
 | Alpine Linux | x86_64, ARM64 | OpenRC |
+| Flatcar / Bottlerocket / CoreOS | x86_64, ARM64 | systemd |
+| VMware Photon OS / Talos | x86_64, ARM64 | systemd |
+| **BSD** |||
+| FreeBSD / OpenBSD / NetBSD | x86_64, ARM64 | rc.d |
+| DragonFly BSD | x86_64 | rc.d |
+| **Enterprise Unix** |||
+| Oracle Solaris / illumos | x86_64, SPARC | SMF |
+| IBM AIX | POWER | SRC |
+| HP-UX | IA-64 | init |
+| **Other** |||
 | macOS | x86_64, Apple Silicon | launchd |
 | Windows Server | x86_64 | Windows Service |
 
@@ -235,9 +249,10 @@ Each organization deploys its **own independent Raksha portal** — no shared in
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
 | **Core Engine** | Rust (Axum + Tower) | High-performance security scanning & API |
-| **Web Dashboard** | React + TypeScript + Tailwind | Interactive security dashboard |
+| **Web Dashboard** | Next.js 14 + TypeScript + Tailwind | Interactive security dashboard |
 | **ML Engine** | Python + scikit-learn + PyTorch | Threat detection & anomaly models |
-| **Database** | PostgreSQL 16 | Primary data store |
+| **Primary Database** | PostgreSQL 16 | Primary data store |
+| **Monitored Databases** | PostgreSQL, MySQL, MongoDB, Redis, Oracle, MariaDB, SQL Server | Database Guard support |
 | **Time-series** | TimescaleDB | Metrics storage |
 | **Cache** | Redis | Session & query caching |
 | **Message Queue** | Apache Kafka | Event streaming |
@@ -284,9 +299,9 @@ redis-server --port 6379 --save ''
 psql -d postgres -c "CREATE ROLE raksha SUPERUSER LOGIN PASSWORD 'raksha_dev';"
 psql -d postgres -c "CREATE DATABASE raksha_platform OWNER raksha;"
 
-# 2. Apply migrations (creates all 53 tables + seed roles/tenant)
+# 2. Apply migrations (creates all tables + seed roles/tenant)
 for f in migrations/*.sql; do
-  psql "postgres://raksha:raksha_dev@localhost:5432/raksha_platform" -f "$f"
+  psql "$DATABASE_URL" -f "$f"
 done
 
 # 3. Build & run the portal API
