@@ -1,3 +1,7 @@
+//! CLI command modules
+
+#![allow(dead_code)]
+
 pub mod status;
 pub mod agents;
 pub mod alerts;

@@ -4,10 +4,10 @@
 
 use axum::{
     extract::{Path, Query, State},
-    routing::{delete, get, post},
+    routing::get,
     Json, Router,
 };
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Duration, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -25,7 +25,7 @@ pub fn routes() -> Router<AppState> {
         .route("/:id", get(get_document).delete(remove_document))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 struct DocumentResponse {
     id: Uuid,
     title: String,
@@ -33,21 +33,12 @@ struct DocumentResponse {
     doc_type: String,
     category: Option<String>,
     status: String,
-    classification: String,
-    version: String,
-    file_name: Option<String>,
+    classification: Option<String>,
+    version: i32,
+    file_path: Option<String>,
     mime_type: Option<String>,
-    size_bytes: Option<i64>,
-    content_sha256: Option<String>,
-    grc_policy_id: Option<Uuid>,
-    grc_control_id: Option<Uuid>,
-    incident_id: Option<Uuid>,
-    owner_id: Option<Uuid>,
-    approved_by: Option<Uuid>,
-    approved_at: Option<DateTime<Utc>>,
-    effective_date: Option<NaiveDate>,
-    expires_at: Option<DateTime<Utc>>,
-    download_count: i64,
+    file_size: Option<i64>,
+    checksum: Option<String>,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
 }
@@ -57,27 +48,25 @@ async fn list_documents(
     Query(pagination): Query<Pagination>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<PaginatedResponse<DocumentResponse>>> {
-    let docs = sqlx::query_as!(
-        DocumentResponse,
+    let docs = sqlx::query_as::<_, DocumentResponse>(
         r#"
-        SELECT id, title, description, doc_type, category, status,
-               classification, version, file_name, mime_type, size_bytes,
-               content_sha256, grc_policy_id, grc_control_id, incident_id,
-               owner_id, approved_by, approved_at, effective_date, expires_at,
-               download_count, created_at, updated_at
+        SELECT id, title, description, doc_type::text, category, status::text,
+               classification, version, file_path, mime_type, file_size,
+               checksum, created_at, updated_at
         FROM documents
         ORDER BY created_at DESC
         LIMIT $1 OFFSET $2
-        "#,
-        pagination.limit(),
-        pagination.offset(),
+        "#
     )
+    .bind(pagination.limit())
+    .bind(pagination.offset())
     .fetch_all(&state.db)
     .await?;
 
-    let total = sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM documents"#)
+    let total: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM documents"#)
         .fetch_one(&state.db)
-        .await?;
+        .await
+        .unwrap_or(0);
 
     Ok(Json(PaginatedResponse {
         data: docs,
@@ -95,18 +84,15 @@ async fn get_document(
     Path(id): Path<Uuid>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<DocumentResponse>> {
-    let doc = sqlx::query_as!(
-        DocumentResponse,
+    let doc = sqlx::query_as::<_, DocumentResponse>(
         r#"
-        SELECT id, title, description, doc_type, category, status,
-               classification, version, file_name, mime_type, size_bytes,
-               content_sha256, grc_policy_id, grc_control_id, incident_id,
-               owner_id, approved_by, approved_at, effective_date, expires_at,
-               download_count, created_at, updated_at
+        SELECT id, title, description, doc_type::text, category, status::text,
+               classification, version, file_path, mime_type, file_size,
+               checksum, created_at, updated_at
         FROM documents WHERE id = $1
-        "#,
-        id,
+        "#
     )
+    .bind(id)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound("Document not found".to_string()))?;
@@ -114,29 +100,28 @@ async fn get_document(
     Ok(Json(doc))
 }
 
-/// Published documents past or nearing their expiry date, so compliance owners
-/// can renew evidence before it goes stale.
+#[derive(Debug, Serialize, sqlx::FromRow)]
+struct ExpiringDoc {
+    id: Uuid,
+    title: String,
+    doc_type: String,
+    retention_until: Option<NaiveDate>,
+}
+
 async fn list_expiring(
     State(state): State<AppState>,
     _claims: axum::Extension<Claims>,
-) -> AppResult<Json<Vec<DocumentResponse>>> {
-    let cutoff = Utc::now() + chrono::Duration::days(30);
-
-    let docs = sqlx::query_as!(
-        DocumentResponse,
+) -> AppResult<Json<Vec<ExpiringDoc>>> {
+    let soon = (Utc::now() + Duration::days(30)).date_naive();
+    let docs = sqlx::query_as::<_, ExpiringDoc>(
         r#"
-        SELECT id, title, description, doc_type, category, status,
-               classification, version, file_name, mime_type, size_bytes,
-               content_sha256, grc_policy_id, grc_control_id, incident_id,
-               owner_id, approved_by, approved_at, effective_date, expires_at,
-               download_count, created_at, updated_at
+        SELECT id, title, doc_type::text, retention_until
         FROM documents
-        WHERE expires_at IS NOT NULL AND expires_at <= $1
-        ORDER BY expires_at
-        LIMIT 100
-        "#,
-        cutoff,
+        WHERE retention_until IS NOT NULL AND retention_until <= $1 AND status != 'archived'
+        ORDER BY retention_until
+        "#
     )
+    .bind(soon)
     .fetch_all(&state.db)
     .await?;
 
@@ -154,32 +139,46 @@ struct DocumentSummary {
     total_size_bytes: i64,
 }
 
+#[derive(Debug, sqlx::FromRow)]
+struct DocSummaryRow {
+    total: i64,
+    published: i64,
+    draft: i64,
+    in_review: i64,
+    expired: i64,
+    expiring: i64,
+    size: i64,
+}
+
 async fn document_summary(
     State(state): State<AppState>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<DocumentSummary>> {
-    let soon = Utc::now() + chrono::Duration::days(30);
-    let now = Utc::now();
+    let now = Utc::now().date_naive();
+    let soon = (Utc::now() + Duration::days(30)).date_naive();
 
-    let row = sqlx::query!(
+    let row: DocSummaryRow = sqlx::query_as(
         r#"
         SELECT
-            COUNT(*) as "total!",
-            COUNT(*) FILTER (WHERE status = 'published') as "published!",
-            COUNT(*) FILTER (WHERE status = 'draft') as "draft!",
-            COUNT(*) FILTER (WHERE status = 'in_review') as "in_review!",
-            COUNT(*) FILTER (WHERE expires_at IS NOT NULL AND expires_at < $1) as "expired!",
+            COUNT(*)::bigint as total,
+            COUNT(*) FILTER (WHERE status = 'published')::bigint as published,
+            COUNT(*) FILTER (WHERE status = 'draft')::bigint as draft,
+            COUNT(*) FILTER (WHERE status = 'in_review')::bigint as in_review,
+            COUNT(*) FILTER (WHERE status = 'archived')::bigint as expired,
             COUNT(*) FILTER (
-                WHERE expires_at IS NOT NULL AND expires_at >= $1 AND expires_at <= $2
-            ) as "expiring!",
-            COALESCE(SUM(size_bytes), 0)::bigint as "size!"
+                WHERE retention_until IS NOT NULL AND retention_until >= $1 AND retention_until <= $2
+            )::bigint as expiring,
+            COALESCE(SUM(file_size), 0)::bigint as size
         FROM documents
-        "#,
-        now,
-        soon,
+        "#
     )
+    .bind(now)
+    .bind(soon)
     .fetch_one(&state.db)
-    .await?;
+    .await
+    .unwrap_or(DocSummaryRow {
+        total: 0, published: 0, draft: 0, in_review: 0, expired: 0, expiring: 0, size: 0,
+    });
 
     Ok(Json(DocumentSummary {
         total: row.total,
@@ -207,15 +206,9 @@ struct CreateDocumentRequest {
     version: String,
 }
 
-fn default_doc_type() -> String {
-    "policy".to_string()
-}
-fn default_classification() -> String {
-    "internal".to_string()
-}
-fn default_version() -> String {
-    "1.0".to_string()
-}
+fn default_doc_type() -> String { "policy".to_string() }
+fn default_classification() -> String { "internal".to_string() }
+fn default_version() -> String { "1.0".to_string() }
 
 async fn create_document(
     State(state): State<AppState>,
@@ -232,29 +225,28 @@ async fn create_document(
     }
 
     let id = new_id();
-    let tenant_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+    let org_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+    let slug = payload.title.to_lowercase().replace(' ', "-");
 
-    let doc = sqlx::query_as!(
-        DocumentResponse,
+    let doc = sqlx::query_as::<_, DocumentResponse>(
         r#"
         INSERT INTO documents
-            (id, tenant_id, title, description, doc_type, category, status, classification, version,
-             tags, metadata, download_count, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, 'draft', $7, $8, '[]', '{}', 0, NOW(), NOW())
-        RETURNING id, title, description, doc_type, category, status, classification, version,
-                  file_name, mime_type, size_bytes, content_sha256, grc_policy_id, grc_control_id,
-                  incident_id, owner_id, approved_by, approved_at, effective_date, expires_at,
-                  download_count, created_at, updated_at
-        "#,
-        id,
-        tenant_id,
-        payload.title,
-        payload.description,
-        payload.doc_type,
-        payload.category,
-        payload.classification,
-        payload.version,
+            (id, org_id, title, slug, description, doc_type, category, status, classification, version,
+             created_by, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6::document_type, $7, 'draft', $8, 1, $9, NOW(), NOW())
+        RETURNING id, title, description, doc_type::text, category, status::text, classification, version,
+                  file_path, mime_type, file_size, checksum, created_at, updated_at
+        "#
     )
+    .bind(id)
+    .bind(org_id)
+    .bind(&payload.title)
+    .bind(&slug)
+    .bind(&payload.description)
+    .bind(&payload.doc_type)
+    .bind(&payload.category)
+    .bind(&payload.classification)
+    .bind(claims.sub)
     .fetch_one(&state.db)
     .await?;
 
@@ -271,7 +263,8 @@ async fn remove_document(
             "Admin access required to delete documents".to_string(),
         ));
     }
-    let result = sqlx::query!("DELETE FROM documents WHERE id = $1", id)
+    let result = sqlx::query("DELETE FROM documents WHERE id = $1")
+        .bind(id)
         .execute(&state.db)
         .await?;
     if result.rows_affected() == 0 {

@@ -50,6 +50,11 @@ struct CreateTenantPayload {
     name: String,
     #[validate(length(min = 2, max = 50))]
     slug: String,
+    #[validate(email)]
+    contact_email: String,
+    contact_name: Option<String>,
+    domain: Option<String>,
+    plan: Option<String>,
     settings: Option<serde_json::Value>,
 }
 
@@ -60,7 +65,6 @@ struct UpdateTenantPayload {
     settings: Option<serde_json::Value>,
 }
 
-/// POST /api/v1/tenants - Create a new tenant (superadmin only)
 async fn create_tenant(
     State(state): State<AppState>,
     axum::Extension(claims): axum::Extension<Claims>,
@@ -72,9 +76,7 @@ async fn create_tenant(
         ));
     }
 
-    payload
-        .validate()
-        .map_err(|e| AppError::Validation(e.to_string()))?;
+    payload.validate().map_err(|e| AppError::Validation(e.to_string()))?;
 
     if !payload.slug.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
         || payload.slug.starts_with('-')
@@ -85,12 +87,13 @@ async fn create_tenant(
         ));
     }
 
-    let slug_exists = sqlx::query_scalar!(
-        r#"SELECT EXISTS(SELECT 1 FROM tenants WHERE slug = $1) as "exists!""#,
-        payload.slug
+    let slug_exists: bool = sqlx::query_scalar(
+        r#"SELECT EXISTS(SELECT 1 FROM tenants WHERE slug = $1)"#
     )
+    .bind(&payload.slug)
     .fetch_one(&state.db)
-    .await?;
+    .await
+    .unwrap_or(false);
 
     if slug_exists {
         return Err(AppError::Conflict(format!(
@@ -101,20 +104,23 @@ async fn create_tenant(
 
     let id = uuid::Uuid::now_v7();
     let settings = payload.settings.unwrap_or(serde_json::json!({}));
+    let plan = payload.plan.unwrap_or_else(|| "free".to_string());
 
-    let tenant = sqlx::query_as!(
-        TenantResponse,
+    let tenant = sqlx::query_as::<_, TenantResponse>(
         r#"
-        INSERT INTO tenants (id, name, slug, settings, status, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, 'active', NOW(), NOW())
-        RETURNING id, name, slug, settings, status as "status: TenantStatus",
-                  created_at, updated_at
-        "#,
-        id,
-        payload.name,
-        payload.slug,
-        settings,
+        INSERT INTO tenants (id, name, slug, contact_email, contact_name, domain, plan, settings, status, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active', NOW(), NOW())
+        RETURNING id, name, slug, settings, status, created_at, updated_at
+        "#
     )
+    .bind(id)
+    .bind(&payload.name)
+    .bind(&payload.slug)
+    .bind(&payload.contact_email)
+    .bind(&payload.contact_name)
+    .bind(&payload.domain)
+    .bind(&plan)
+    .bind(&settings)
     .fetch_one(&state.db)
     .await?;
 
@@ -128,7 +134,6 @@ async fn create_tenant(
     Ok(Json(tenant))
 }
 
-/// GET /api/v1/tenants - List all tenants (superadmin only)
 async fn list_tenants(
     State(state): State<AppState>,
     Query(pagination): Query<Pagination>,
@@ -140,27 +145,26 @@ async fn list_tenants(
         ));
     }
 
-    let tenants = sqlx::query_as!(
-        TenantResponse,
+    let tenants = sqlx::query_as::<_, TenantResponse>(
         r#"
-        SELECT id, name, slug, settings, status as "status: TenantStatus",
-               created_at, updated_at
+        SELECT id, name, slug, settings, status, created_at, updated_at
         FROM tenants
         WHERE status != 'deleted'
-        ORDER BY created_at DESC
+        ORDER BY name
         LIMIT $1 OFFSET $2
-        "#,
-        pagination.limit(),
-        pagination.offset(),
+        "#
     )
+    .bind(pagination.limit())
+    .bind(pagination.offset())
     .fetch_all(&state.db)
     .await?;
 
-    let total = sqlx::query_scalar!(
-        r#"SELECT COUNT(*) as "count!" FROM tenants WHERE status != 'deleted'"#
+    let total: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(*) FROM tenants WHERE status != 'deleted'"#
     )
     .fetch_one(&state.db)
-    .await?;
+    .await
+    .unwrap_or(0);
 
     Ok(Json(PaginatedResponse {
         data: tenants,
@@ -173,7 +177,6 @@ async fn list_tenants(
     }))
 }
 
-/// GET /api/v1/tenants/{id} - Get tenant details
 async fn get_tenant(
     State(state): State<AppState>,
     Path(tenant_id): Path<Uuid>,
@@ -189,16 +192,14 @@ async fn get_tenant(
         }
     }
 
-    let tenant = sqlx::query_as!(
-        TenantResponse,
+    let tenant = sqlx::query_as::<_, TenantResponse>(
         r#"
-        SELECT id, name, slug, settings, status as "status: TenantStatus",
-               created_at, updated_at
+        SELECT id, name, slug, settings, status, created_at, updated_at
         FROM tenants
         WHERE id = $1 AND status != 'deleted'
-        "#,
-        tenant_id,
+        "#
     )
+    .bind(tenant_id)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound(format!("Tenant {} not found", tenant_id)))?;
@@ -206,7 +207,6 @@ async fn get_tenant(
     Ok(Json(tenant))
 }
 
-/// PUT /api/v1/tenants/{id} - Update tenant details
 async fn update_tenant(
     State(state): State<AppState>,
     Path(tenant_id): Path<Uuid>,
@@ -214,6 +214,8 @@ async fn update_tenant(
     axum::Extension(tenant_ctx): axum::Extension<TenantContext>,
     Json(payload): Json<UpdateTenantPayload>,
 ) -> AppResult<Json<TenantResponse>> {
+    payload.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+
     if !tenant_ctx.is_superadmin {
         let own_tenant = tenant_ctx.require_tenant_id()?;
         if own_tenant != tenant_id {
@@ -228,25 +230,19 @@ async fn update_tenant(
         }
     }
 
-    payload
-        .validate()
-        .map_err(|e| AppError::Validation(e.to_string()))?;
-
-    let tenant = sqlx::query_as!(
-        TenantResponse,
+    let tenant = sqlx::query_as::<_, TenantResponse>(
         r#"
         UPDATE tenants
         SET name = COALESCE($2, name),
             settings = COALESCE($3, settings),
             updated_at = NOW()
         WHERE id = $1 AND status != 'deleted'
-        RETURNING id, name, slug, settings, status as "status: TenantStatus",
-                  created_at, updated_at
-        "#,
-        tenant_id,
-        payload.name,
-        payload.settings,
+        RETURNING id, name, slug, settings, status, created_at, updated_at
+        "#
     )
+    .bind(tenant_id)
+    .bind(&payload.name)
+    .bind(&payload.settings)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound(format!("Tenant {} not found", tenant_id)))?;
@@ -260,7 +256,6 @@ async fn update_tenant(
     Ok(Json(tenant))
 }
 
-/// POST /api/v1/tenants/{id}/suspend - Suspend a tenant (superadmin only)
 async fn suspend_tenant(
     State(state): State<AppState>,
     Path(tenant_id): Path<Uuid>,
@@ -272,17 +267,15 @@ async fn suspend_tenant(
         ));
     }
 
-    let tenant = sqlx::query_as!(
-        TenantResponse,
+    let tenant = sqlx::query_as::<_, TenantResponse>(
         r#"
         UPDATE tenants
         SET status = 'suspended', updated_at = NOW()
         WHERE id = $1 AND status = 'active'
-        RETURNING id, name, slug, settings, status as "status: TenantStatus",
-                  created_at, updated_at
-        "#,
-        tenant_id,
+        RETURNING id, name, slug, settings, status, created_at, updated_at
+        "#
     )
+    .bind(tenant_id)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound(format!(
@@ -300,7 +293,6 @@ async fn suspend_tenant(
     Ok(Json(tenant))
 }
 
-/// GET /api/v1/tenants/{id}/stats - Get tenant statistics
 async fn get_tenant_stats(
     State(state): State<AppState>,
     Path(tenant_id): Path<Uuid>,
@@ -316,43 +308,47 @@ async fn get_tenant_stats(
         }
     }
 
-    let tenant_exists = sqlx::query_scalar!(
-        r#"SELECT EXISTS(SELECT 1 FROM tenants WHERE id = $1 AND status != 'deleted') as "exists!""#,
-        tenant_id
+    let tenant_exists: bool = sqlx::query_scalar(
+        r#"SELECT EXISTS(SELECT 1 FROM tenants WHERE id = $1 AND status != 'deleted')"#
     )
+    .bind(tenant_id)
     .fetch_one(&state.db)
-    .await?;
+    .await
+    .unwrap_or(false);
 
     if !tenant_exists {
         return Err(AppError::NotFound(format!("Tenant {} not found", tenant_id)));
     }
 
-    let agent_count = sqlx::query_scalar!(
-        r#"SELECT COUNT(*) as "count!" FROM agents WHERE org_id = $1"#,
-        tenant_id
+    let agent_count: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(*) FROM agents WHERE org_id = $1"#
     )
+    .bind(tenant_id)
     .fetch_one(&state.db)
-    .await?;
+    .await
+    .unwrap_or(0);
 
-    let alert_count = sqlx::query_scalar!(
-        r#"SELECT COUNT(*) as "count!" FROM alerts a
+    let alert_count: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(*) FROM alerts a
         INNER JOIN agents ag ON a.agent_id = ag.id
-        WHERE ag.org_id = $1"#,
-        tenant_id
+        WHERE ag.org_id = $1"#
     )
+    .bind(tenant_id)
     .fetch_one(&state.db)
-    .await?;
+    .await
+    .unwrap_or(0);
 
-    let user_count = sqlx::query_scalar!(
+    let user_count: i64 = sqlx::query_scalar(
         r#"
-        SELECT COUNT(DISTINCT ura.user_id) as "count!"
+        SELECT COUNT(DISTINCT ura.user_id)
         FROM user_roles ura
         WHERE ura.org_id = $1 AND ura.is_active = true
-        "#,
-        tenant_id
+        "#
     )
+    .bind(tenant_id)
     .fetch_one(&state.db)
-    .await?;
+    .await
+    .unwrap_or(0);
 
     Ok(Json(TenantStatsResponse {
         tenant_id,

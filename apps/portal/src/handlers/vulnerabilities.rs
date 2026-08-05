@@ -17,12 +17,13 @@ use crate::state::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .route("/", get(list_scans))
         .route("/scans", get(list_scans))
         .route("/scans/:id", get(get_scan))
         .route("/summary", get(vuln_summary))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 struct ScanResponse {
     id: Uuid,
     agent_id: Uuid,
@@ -48,8 +49,7 @@ async fn list_scans(
     Query(pagination): Query<Pagination>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<PaginatedResponse<ScanResponse>>> {
-    let scans = sqlx::query_as!(
-        ScanResponse,
+    let scans = sqlx::query_as::<_, ScanResponse>(
         r#"
         SELECT id, agent_id, scan_type, scanner, status, total_packages,
                total_vulns, critical_count, high_count, medium_count,
@@ -58,16 +58,17 @@ async fn list_scans(
         FROM vulnerability_scans
         ORDER BY started_at DESC
         LIMIT $1 OFFSET $2
-        "#,
-        pagination.limit(),
-        pagination.offset(),
+        "#
     )
+    .bind(pagination.limit())
+    .bind(pagination.offset())
     .fetch_all(&state.db)
     .await?;
 
-    let total = sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM vulnerability_scans"#)
+    let total: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM vulnerability_scans"#)
         .fetch_one(&state.db)
-        .await?;
+        .await
+        .unwrap_or(0);
 
     Ok(Json(PaginatedResponse {
         data: scans,
@@ -85,17 +86,16 @@ async fn get_scan(
     Path(id): Path<Uuid>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<ScanResponse>> {
-    let scan = sqlx::query_as!(
-        ScanResponse,
+    let scan = sqlx::query_as::<_, ScanResponse>(
         r#"
         SELECT id, agent_id, scan_type, scanner, status, total_packages,
                total_vulns, critical_count, high_count, medium_count,
                low_count, info_count, fixable_count, duration_secs,
                error_message, started_at, completed_at
         FROM vulnerability_scans WHERE id = $1
-        "#,
-        id,
+        "#
     )
+    .bind(id)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound("Scan not found".to_string()))?;
@@ -109,8 +109,6 @@ struct VulnSummary {
     completed_scans: i64,
     failed_scans: i64,
     running_scans: i64,
-    /// Severity totals from the most recent completed scan per agent, so hosts
-    /// scanned repeatedly are not counted many times over.
     critical_vulns: i64,
     high_vulns: i64,
     medium_vulns: i64,
@@ -119,24 +117,43 @@ struct VulnSummary {
     agents_scanned: i64,
 }
 
+#[derive(Debug, sqlx::FromRow)]
+struct ScanCountsRow {
+    total: i64,
+    completed: i64,
+    failed: i64,
+    running: i64,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct LatestVulnsRow {
+    critical: i64,
+    high: i64,
+    medium: i64,
+    low: i64,
+    fixable: i64,
+    agents: i64,
+}
+
 async fn vuln_summary(
     State(state): State<AppState>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<VulnSummary>> {
-    let counts = sqlx::query!(
+    let counts: ScanCountsRow = sqlx::query_as(
         r#"
         SELECT
-            COUNT(*) as "total!",
-            COUNT(*) FILTER (WHERE status = 'completed') as "completed!",
-            COUNT(*) FILTER (WHERE status = 'failed') as "failed!",
-            COUNT(*) FILTER (WHERE status = 'running') as "running!"
+            COUNT(*)::bigint as total,
+            COUNT(*) FILTER (WHERE status = 'completed')::bigint as completed,
+            COUNT(*) FILTER (WHERE status = 'failed')::bigint as failed,
+            COUNT(*) FILTER (WHERE status = 'running')::bigint as running
         FROM vulnerability_scans
         "#
     )
     .fetch_one(&state.db)
-    .await?;
+    .await
+    .unwrap_or(ScanCountsRow { total: 0, completed: 0, failed: 0, running: 0 });
 
-    let latest = sqlx::query!(
+    let latest: LatestVulnsRow = sqlx::query_as(
         r#"
         WITH latest AS (
             SELECT DISTINCT ON (agent_id)
@@ -147,17 +164,18 @@ async fn vuln_summary(
             ORDER BY agent_id, started_at DESC
         )
         SELECT
-            COALESCE(SUM(critical_count), 0)::bigint as "critical!",
-            COALESCE(SUM(high_count), 0)::bigint as "high!",
-            COALESCE(SUM(medium_count), 0)::bigint as "medium!",
-            COALESCE(SUM(low_count), 0)::bigint as "low!",
-            COALESCE(SUM(fixable_count), 0)::bigint as "fixable!",
-            COUNT(*) as "agents!"
+            COALESCE(SUM(critical_count), 0)::bigint as critical,
+            COALESCE(SUM(high_count), 0)::bigint as high,
+            COALESCE(SUM(medium_count), 0)::bigint as medium,
+            COALESCE(SUM(low_count), 0)::bigint as low,
+            COALESCE(SUM(fixable_count), 0)::bigint as fixable,
+            COUNT(*)::bigint as agents
         FROM latest
         "#
     )
     .fetch_one(&state.db)
-    .await?;
+    .await
+    .unwrap_or(LatestVulnsRow { critical: 0, high: 0, medium: 0, low: 0, fixable: 0, agents: 0 });
 
     Ok(Json(VulnSummary {
         total_scans: counts.total,

@@ -1,3 +1,7 @@
+//! Application state management
+
+#![allow(dead_code)]
+
 use std::sync::Arc;
 
 use deadpool_redis::Pool as RedisPool;

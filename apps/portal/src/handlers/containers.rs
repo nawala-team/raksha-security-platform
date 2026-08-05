@@ -23,7 +23,7 @@ pub fn routes() -> Router<AppState> {
         .route("/:id", get(get_container))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 struct ContainerResponse {
     id: Uuid,
     agent_id: Option<Uuid>,
@@ -56,8 +56,7 @@ async fn list_containers(
     Query(pagination): Query<Pagination>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<PaginatedResponse<ContainerResponse>>> {
-    let containers = sqlx::query_as!(
-        ContainerResponse,
+    let containers = sqlx::query_as::<_, ContainerResponse>(
         r#"
         SELECT id, agent_id, server_id, container_id, name, image, image_tag,
                runtime, orchestrator, namespace, pod_name, status,
@@ -67,16 +66,17 @@ async fn list_containers(
         FROM containers
         ORDER BY critical_vulns DESC, high_vulns DESC, name
         LIMIT $1 OFFSET $2
-        "#,
-        pagination.limit(),
-        pagination.offset(),
+        "#
     )
+    .bind(pagination.limit())
+    .bind(pagination.offset())
     .fetch_all(&state.db)
     .await?;
 
-    let total = sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM containers"#)
+    let total: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM containers"#)
         .fetch_one(&state.db)
-        .await?;
+        .await
+        .unwrap_or(0);
 
     Ok(Json(PaginatedResponse {
         data: containers,
@@ -94,8 +94,7 @@ async fn get_container(
     Path(id): Path<Uuid>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<ContainerResponse>> {
-    let container = sqlx::query_as!(
-        ContainerResponse,
+    let container = sqlx::query_as::<_, ContainerResponse>(
         r#"
         SELECT id, agent_id, server_id, container_id, name, image, image_tag,
                runtime, orchestrator, namespace, pod_name, status,
@@ -103,9 +102,9 @@ async fn get_container(
                critical_vulns, high_vulns, medium_vulns, low_vulns,
                compliance_score, started_at, last_scanned_at
         FROM containers WHERE id = $1
-        "#,
-        id,
+        "#
     )
+    .bind(id)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound("Container not found".to_string()))?;
@@ -125,26 +124,42 @@ struct ContainerSummary {
     high_vulns: i64,
 }
 
+#[derive(Debug, sqlx::FromRow)]
+struct ContainerSummaryRow {
+    total: i64,
+    running: i64,
+    stopped: i64,
+    privileged: i64,
+    as_root: i64,
+    host_net: i64,
+    critical: i64,
+    high: i64,
+}
+
 async fn container_summary(
     State(state): State<AppState>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<ContainerSummary>> {
-    let row = sqlx::query!(
+    let row: ContainerSummaryRow = sqlx::query_as(
         r#"
         SELECT
-            COUNT(*) as "total!",
-            COUNT(*) FILTER (WHERE status = 'running') as "running!",
-            COUNT(*) FILTER (WHERE status = 'stopped') as "stopped!",
-            COUNT(*) FILTER (WHERE privileged) as "privileged!",
-            COUNT(*) FILTER (WHERE root_user) as "as_root!",
-            COUNT(*) FILTER (WHERE host_network) as "host_net!",
-            COALESCE(SUM(critical_vulns), 0) as "critical!",
-            COALESCE(SUM(high_vulns), 0) as "high!"
+            COUNT(*)::bigint as total,
+            COUNT(*) FILTER (WHERE status = 'running')::bigint as running,
+            COUNT(*) FILTER (WHERE status = 'stopped')::bigint as stopped,
+            COUNT(*) FILTER (WHERE privileged)::bigint as privileged,
+            COUNT(*) FILTER (WHERE root_user)::bigint as as_root,
+            COUNT(*) FILTER (WHERE host_network)::bigint as host_net,
+            COALESCE(SUM(critical_vulns), 0)::bigint as critical,
+            COALESCE(SUM(high_vulns), 0)::bigint as high
         FROM containers
         "#
     )
     .fetch_one(&state.db)
-    .await?;
+    .await
+    .unwrap_or(ContainerSummaryRow {
+        total: 0, running: 0, stopped: 0, privileged: 0,
+        as_root: 0, host_net: 0, critical: 0, high: 0,
+    });
 
     Ok(Json(ContainerSummary {
         total: row.total,
@@ -158,7 +173,7 @@ async fn container_summary(
     }))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 struct ImageScanResponse {
     id: Uuid,
     image: String,
@@ -183,8 +198,7 @@ async fn list_scans(
     Query(pagination): Query<Pagination>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<PaginatedResponse<ImageScanResponse>>> {
-    let scans = sqlx::query_as!(
-        ImageScanResponse,
+    let scans = sqlx::query_as::<_, ImageScanResponse>(
         r#"
         SELECT id, image, image_digest, scanner, status,
                critical_count, high_count, medium_count, low_count,
@@ -193,16 +207,17 @@ async fn list_scans(
         FROM container_image_scans
         ORDER BY started_at DESC
         LIMIT $1 OFFSET $2
-        "#,
-        pagination.limit(),
-        pagination.offset(),
+        "#
     )
+    .bind(pagination.limit())
+    .bind(pagination.offset())
     .fetch_all(&state.db)
     .await?;
 
-    let total = sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM container_image_scans"#)
+    let total: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM container_image_scans"#)
         .fetch_one(&state.db)
-        .await?;
+        .await
+        .unwrap_or(0);
 
     Ok(Json(PaginatedResponse {
         data: scans,
@@ -214,4 +229,3 @@ async fn list_scans(
         },
     }))
 }
-

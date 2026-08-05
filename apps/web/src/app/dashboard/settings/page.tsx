@@ -1,6 +1,7 @@
 "use client";
 
-import { Bell, Shield, Globe, Key } from "lucide-react";
+import { useState } from "react";
+import { Bell, Shield, Globe, Key, Loader2, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,17 @@ import { SiemSettings } from "./siem";
 import { NotificationSettings } from "./notifications";
 
 export default function SettingsPage() {
+  const [saving, setSaving] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
+
+  const handleSave = async (section: string) => {
+    setSaving(section);
+    await new Promise(r => setTimeout(r, 500)); // Simulate API call
+    setSaved(section);
+    setSaving(null);
+    setTimeout(() => setSaved(null), 2000);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -48,7 +60,11 @@ export default function SettingsPage() {
                 <Label htmlFor="retention">Data Retention (days)</Label>
                 <Input id="retention" type="number" defaultValue="90" />
               </div>
-              <Button>Save Changes</Button>
+              <Button onClick={() => handleSave("general")} disabled={saving === "general"}>
+                {saving === "general" && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {saved === "general" && <Check className="h-4 w-4 mr-2" />}
+                {saving === "general" ? "Saving..." : saved === "general" ? "Saved!" : "Save Changes"}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -77,7 +93,9 @@ export default function SettingsPage() {
                 <Checkbox id="enforce-mfa" defaultChecked />
                 <Label htmlFor="enforce-mfa" className="cursor-pointer">Enforce MFA for all users</Label>
               </div>
-              <Button>Save Security Settings</Button>
+              <Button onClick={() => handleSave("security")} disabled={saving === "security"}>
+                {saving === "security" ? "Saving..." : saved === "security" ? "Saved!" : "Save Security Settings"}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -98,7 +116,9 @@ export default function SettingsPage() {
                 <Label htmlFor="vt-key">VirusTotal API Key</Label>
                 <Input id="vt-key" type="password" placeholder="Enter API key" />
               </div>
-              <Button>Save Integrations</Button>
+              <Button onClick={() => handleSave("integrations")} disabled={saving === "integrations"}>
+                {saving === "integrations" ? "Saving..." : saved === "integrations" ? "Saved!" : "Save Integrations"}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

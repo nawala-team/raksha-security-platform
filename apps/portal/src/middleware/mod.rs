@@ -40,7 +40,7 @@ pub async fn rate_limit_layer(
 
     let key = format!("raksha:ratelimit:{}", ip);
     let window_secs: u64 = 60;
-    let max_requests: i64 = 100;
+    let max_requests: i64 = 1000;  // Increased for production
 
     let mut conn = state
         .redis

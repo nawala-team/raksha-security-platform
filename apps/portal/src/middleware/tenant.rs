@@ -48,12 +48,13 @@ pub async fn tenant_context_layer(
         match header_tenant {
             Some(tid) => {
                 // Verify the tenant exists and is active
-                let exists = sqlx::query_scalar!(
-                    r#"SELECT EXISTS(SELECT 1 FROM tenants WHERE id = $1 AND status = 'active') as "exists!""#,
-                    tid
+                let exists: bool = sqlx::query_scalar(
+                    r#"SELECT EXISTS(SELECT 1 FROM tenants WHERE id = $1 AND status = 'active')"#
                 )
+                .bind(tid)
                 .fetch_one(&state.db)
-                .await?;
+                .await
+                .unwrap_or(false);
 
                 if !exists {
                     return Err(AppError::NotFound(format!(
@@ -92,22 +93,21 @@ async fn resolve_tenant_for_user(
     state: &AppState,
     claims: &Claims,
 ) -> Result<uuid::Uuid, AppError> {
-    let tenant_id = sqlx::query_scalar!(
+    let tenant_id: Option<uuid::Uuid> = sqlx::query_scalar(
         r#"
-        SELECT t.id as "id!"
+        SELECT t.id
         FROM tenants t
         INNER JOIN user_roles ura ON ura.org_id = t.id
         WHERE ura.user_id = $1 AND ura.is_active = true AND t.status = 'active'
         ORDER BY ura.granted_at ASC
         LIMIT 1
-        "#,
-        claims.sub
+        "#
     )
+    .bind(claims.sub)
     .fetch_optional(&state.db)
-    .await?
-    .ok_or_else(|| {
-        AppError::Forbidden("User is not assigned to any active tenant".to_string())
-    })?;
+    .await?;
 
-    Ok(tenant_id)
+    tenant_id.ok_or_else(|| {
+        AppError::Forbidden("User is not assigned to any active tenant".to_string())
+    })
 }

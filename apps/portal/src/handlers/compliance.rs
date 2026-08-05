@@ -15,6 +15,7 @@ use crate::state::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .route("/", get(list_compliance_scores))
         .route("/scores", get(list_compliance_scores))
         .route("/scores/:id", get(get_compliance_score))
         .route("/standards", get(list_standards))
@@ -40,26 +41,26 @@ async fn list_compliance_scores(
     Query(pagination): Query<Pagination>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<PaginatedResponse<ComplianceScoreResponse>>> {
-    let scores = sqlx::query_as!(
-        ComplianceScoreResponse,
+    let scores = sqlx::query_as::<_, ComplianceScoreResponse>(
         r#"
         SELECT id, org_id, standard_id, overall_score,
-               status as "status: ComplianceStatus",
+               status,
                controls_total, controls_passed, controls_failed, controls_na,
                assessed_at
         FROM compliance_scores
         ORDER BY assessed_at DESC
         LIMIT $1 OFFSET $2
-        "#,
-        pagination.limit(),
-        pagination.offset(),
+        "#
     )
+    .bind(pagination.limit())
+    .bind(pagination.offset())
     .fetch_all(&state.db)
     .await?;
 
-    let total = sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM compliance_scores"#)
+    let total: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM compliance_scores"#)
         .fetch_one(&state.db)
-        .await?;
+        .await
+        .unwrap_or(0);
 
     Ok(Json(PaginatedResponse {
         data: scores,
@@ -77,17 +78,16 @@ async fn get_compliance_score(
     Path(id): Path<Uuid>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<ComplianceScoreResponse>> {
-    let score = sqlx::query_as!(
-        ComplianceScoreResponse,
+    let score = sqlx::query_as::<_, ComplianceScoreResponse>(
         r#"
         SELECT id, org_id, standard_id, overall_score,
-               status as "status: ComplianceStatus",
+               status,
                controls_total, controls_passed, controls_failed, controls_na,
                assessed_at
         FROM compliance_scores WHERE id = $1
-        "#,
-        id,
+        "#
     )
+    .bind(id)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound("Compliance score not found".to_string()))?;
@@ -110,14 +110,13 @@ async fn list_standards(
     State(state): State<AppState>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<Vec<StandardResponse>>> {
-    let standards = sqlx::query_as!(
-        StandardResponse,
+    let standards = sqlx::query_as::<_, StandardResponse>(
         r#"
         SELECT id, name, version, description, authority, is_active, created_at
         FROM compliance_standards
         WHERE is_active = true
         ORDER BY name
-        "#,
+        "#
     )
     .fetch_all(&state.db)
     .await?;
@@ -141,23 +140,23 @@ async fn list_controls(
     Query(pagination): Query<Pagination>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<PaginatedResponse<ControlResponse>>> {
-    let controls = sqlx::query_as!(
-        ControlResponse,
+    let controls = sqlx::query_as::<_, ControlResponse>(
         r#"
         SELECT id, standard_id, control_ref, title, description, category, automated
         FROM compliance_controls
         ORDER BY control_ref
         LIMIT $1 OFFSET $2
-        "#,
-        pagination.limit(),
-        pagination.offset(),
+        "#
     )
+    .bind(pagination.limit())
+    .bind(pagination.offset())
     .fetch_all(&state.db)
     .await?;
 
-    let total = sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM compliance_controls"#)
+    let total: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM compliance_controls"#)
         .fetch_one(&state.db)
-        .await?;
+        .await
+        .unwrap_or(0);
 
     Ok(Json(PaginatedResponse {
         data: controls,

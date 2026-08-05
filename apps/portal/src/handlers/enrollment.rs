@@ -5,6 +5,8 @@
 //! GET  /api/v1/agents/tokens - List active tokens (admin)
 //! DELETE /api/v1/agents/tokens/:id - Revoke token (admin)
 
+#![allow(dead_code)]
+
 use axum::{
     extract::{Json, Path, State},
     http::StatusCode,
@@ -56,9 +58,11 @@ pub struct AgentConfig {
 #[derive(Debug, Deserialize)]
 pub struct GenerateTokenRequest {
     pub agent_name: Option<String>,
+    #[serde(default)]
     pub labels: Vec<String>,
     pub expiry_hours: Option<i64>,
     pub max_uses: Option<u32>,
+    #[serde(default)]
     pub allowed_modules: Vec<String>,
 }
 
@@ -101,11 +105,11 @@ pub async fn enroll_agent(
 
     // Validate token exists and not expired
     let token_row = sqlx::query_as::<_, EnrollmentTokenRow>(
-        r#"SELECT id, token, expires_at, uses_remaining, description 
+        r#"SELECT token_id as id, token_hash as token, expires_at, (max_uses - use_count) as uses_remaining, agent_name as description 
            FROM enrollment_tokens 
-           WHERE token = $1 AND expires_at > NOW() AND uses_remaining > 0 AND revoked_at IS NULL"#
+           WHERE token_hash = $1 AND expires_at > NOW() AND use_count < max_uses AND revoked_at IS NULL"#
     )
-    .bind(&req.token)
+    .bind(&req.token[req.token.len().saturating_sub(64)..])
     .fetch_optional(&state.db)
     .await;
 
@@ -127,7 +131,7 @@ pub async fn enroll_agent(
     };
 
     // Decrement token uses
-    let _ = sqlx::query("UPDATE enrollment_tokens SET uses_remaining = uses_remaining - 1 WHERE id = $1")
+    let _ = sqlx::query("UPDATE enrollment_tokens SET use_count = use_count + 1 WHERE token_id = $1")
         .bind(token_info.id)
         .execute(&state.db)
         .await;
@@ -176,6 +180,7 @@ pub async fn enroll_agent(
 /// POST /api/v1/agents/tokens
 pub async fn generate_token(
     State(state): State<AppState>,
+    axum::Extension(claims): axum::Extension<raksha_auth::Claims>,
     Json(req): Json<GenerateTokenRequest>,
 ) -> impl IntoResponse {
     let token_id = Uuid::now_v7();
@@ -187,17 +192,29 @@ pub async fn generate_token(
     let portal_url = &state.config.portal_url;
 
     // Insert token into database
+    let org_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+    let created_by = claims.sub; // Use authenticated user's ID
+    let token_prefix = &token[..16.min(token.len())];
+    // Use last 64 chars of token as hash (already random)
+    let token_hash = &token[token.len().saturating_sub(64)..];
+    // Convert Vec<String> to JSON for JSONB columns
+    let labels_json = serde_json::json!(req.labels);
+    let modules_json = serde_json::json!(req.allowed_modules);
+    
     let insert_result = sqlx::query(
-        r#"INSERT INTO enrollment_tokens (id, token, description, labels, allowed_modules, expires_at, max_uses, uses_remaining, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $7, NOW())"#
+        r#"INSERT INTO enrollment_tokens (token_id, token_hash, token_prefix, org_id, agent_name, labels, allowed_modules, expires_at, max_uses, use_count, created_by, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, $10, NOW())"#
     )
     .bind(token_id)
-    .bind(&token)
+    .bind(&token_hash)
+    .bind(token_prefix)
+    .bind(org_id)
     .bind(&req.agent_name)
-    .bind(&req.labels)
-    .bind(&req.allowed_modules)
+    .bind(&labels_json)
+    .bind(&modules_json)
     .bind(expires_at)
     .bind(max_uses)
+    .bind(created_by)
     .execute(&state.db)
     .await;
 
@@ -231,7 +248,7 @@ pub async fn list_tokens(
     State(state): State<AppState>,
 ) -> impl IntoResponse {
     let tokens = sqlx::query_as::<_, EnrollmentTokenRow>(
-        r#"SELECT id, token, expires_at, uses_remaining, description 
+        r#"SELECT token_id as id, token_prefix as token, expires_at, (max_uses - use_count) as uses_remaining, agent_name as description 
            FROM enrollment_tokens 
            WHERE revoked_at IS NULL 
            ORDER BY created_at DESC"#
@@ -259,7 +276,7 @@ pub async fn revoke_token(
     State(state): State<AppState>,
     Path(token_id): Path<Uuid>,
 ) -> impl IntoResponse {
-    let result = sqlx::query("UPDATE enrollment_tokens SET revoked_at = NOW() WHERE id = $1")
+    let result = sqlx::query("UPDATE enrollment_tokens SET revoked_at = NOW() WHERE token_id = $1")
         .bind(token_id)
         .execute(&state.db)
         .await;
@@ -291,4 +308,132 @@ pub async fn rotate_certificate(
         "status": "rotated"
     })))
 }
+
+// ─── Agent Public Endpoints (token-based auth) ─────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct AgentHeartbeatRequest {
+    pub agent_id: String,
+    pub token: String,
+    pub status: Option<String>,
+    pub version: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AgentMetricsRequest {
+    pub agent_id: String,
+    pub token: String,
+    pub metrics: Vec<MetricData>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct MetricData {
+    pub name: String,
+    pub value: f64,
+    pub timestamp: Option<DateTime<Utc>>,
+}
+
+/// Validate agent token from database
+async fn validate_agent_token(db: &sqlx::PgPool, agent_id: &str, token: &str) -> bool {
+    // Check if agent exists with matching token_hash
+    let result = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM agents WHERE id::text = $1 AND token_hash = $2"
+    )
+    .bind(agent_id)
+    .bind(token)
+    .fetch_one(db)
+    .await;
+    
+    matches!(result, Ok(count) if count > 0)
+}
+
+/// POST /api/v1/agents/heartbeat - Agent heartbeat (public, token auth)
+pub async fn agent_heartbeat(
+    State(state): State<AppState>,
+    Json(req): Json<AgentHeartbeatRequest>,
+) -> impl IntoResponse {
+    // Validate token
+    if !validate_agent_token(&state.db, &req.agent_id, &req.token).await {
+        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({
+            "error": "invalid_credentials",
+            "message": "Invalid agent ID or token"
+        })));
+    }
+
+    // Update last_seen
+    let update_result = sqlx::query(
+        "UPDATE agents SET last_seen = NOW(), status = 'online'::agent_status WHERE id::text = $1"
+    )
+    .bind(&req.agent_id)
+    .execute(&state.db)
+    .await;
+
+    if let Err(e) = update_result {
+        tracing::error!("Failed to update agent heartbeat: {}", e);
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+            "error": "heartbeat_failed",
+            "message": "Failed to update heartbeat"
+        })));
+    }
+
+    tracing::debug!("Agent heartbeat received: {}", req.agent_id);
+    (StatusCode::OK, Json(serde_json::json!({
+        "status": "ok",
+        "server_time": Utc::now()
+    })))
+}
+
+/// POST /api/v1/agents/metrics - Agent metrics (public, token auth)
+pub async fn agent_metrics(
+    State(state): State<AppState>,
+    Json(req): Json<AgentMetricsRequest>,
+) -> impl IntoResponse {
+    // Validate token
+    if !validate_agent_token(&state.db, &req.agent_id, &req.token).await {
+        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({
+            "error": "invalid_credentials",
+            "message": "Invalid agent ID or token"
+        })));
+    }
+
+    let agent_uuid = match Uuid::parse_str(&req.agent_id) {
+        Ok(u) => u,
+        Err(_) => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({
+            "error": "invalid_agent_id",
+            "message": "Invalid agent ID format"
+        }))),
+    };
+
+    // Insert metrics
+    let mut inserted = 0;
+    for metric in &req.metrics {
+        let ts = metric.timestamp.unwrap_or_else(Utc::now);
+        let result = sqlx::query(
+            "INSERT INTO agent_metrics (agent_id, metric_name, value, timestamp) VALUES ($1, $2, $3, $4)"
+        )
+        .bind(agent_uuid)
+        .bind(&metric.name)
+        .bind(metric.value)
+        .bind(ts)
+        .execute(&state.db)
+        .await;
+
+        if result.is_ok() {
+            inserted += 1;
+        }
+    }
+
+    // Update last_seen
+    let _ = sqlx::query("UPDATE agents SET last_seen = NOW() WHERE id = $1")
+        .bind(agent_uuid)
+        .execute(&state.db)
+        .await;
+
+    tracing::debug!("Agent metrics received: {} metrics from {}", inserted, req.agent_id);
+    (StatusCode::OK, Json(serde_json::json!({
+        "status": "ok",
+        "metrics_received": inserted
+    })))
+}
+
 

@@ -23,21 +23,12 @@ interface DocumentRecord {
   doc_type: string;
   category: string | null;
   status: string;
-  classification: string;
-  version: string;
-  file_name: string | null;
+  classification: string | null;
+  version: number;
+  file_path: string | null;
   mime_type: string | null;
-  size_bytes: number | null;
-  content_sha256: string | null;
-  grc_policy_id: string | null;
-  grc_control_id: string | null;
-  incident_id: string | null;
-  owner_id: string | null;
-  approved_by: string | null;
-  approved_at: string | null;
-  effective_date: string | null;
-  expires_at: string | null;
-  download_count: number;
+  file_size: number | null;
+  checksum: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -241,7 +232,7 @@ export default function DocumentsPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-foreground">{doc.title}</span>
                       <Badge variant="outline" className="text-xs">v{doc.version}</Badge>
-                      {classificationVariants[doc.classification] && (
+                      {doc.classification && classificationVariants[doc.classification] && (
                         <Badge variant={classificationVariants[doc.classification]} className="text-xs">
                           {doc.classification}
                         </Badge>
@@ -254,11 +245,8 @@ export default function DocumentsPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-muted-foreground">
-                      Expires {formatDate(doc.expires_at)}
+                      {doc.status}
                     </span>
-                    {isExpired(doc.expires_at) && (
-                      <Badge variant="destructive" className="text-xs">expired</Badge>
-                    )}
                   </div>
                 </div>
               ))}
@@ -292,7 +280,7 @@ export default function DocumentsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <caption className="sr-only">
-                  Security documents with type, status, classification, version, size and expiry date.
+                  Security documents with type, status, classification, version, size and updated date.
                 </caption>
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
@@ -302,7 +290,6 @@ export default function DocumentsPage() {
                     <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Classification</th>
                     <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Version</th>
                     <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Size</th>
-                    <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Expires</th>
                     <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Updated</th>
                     <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Actions</th>
                   </tr>
@@ -312,8 +299,8 @@ export default function DocumentsPage() {
                     <tr key={doc.id} className="border-b border-border transition-colors hover:bg-muted/20">
                       <td className="px-4 py-3">
                         <p className="font-medium text-foreground">{doc.title}</p>
-                        {doc.file_name && (
-                          <p className="font-mono text-xs text-muted-foreground">{doc.file_name}</p>
+                        {doc.file_path && (
+                          <p className="font-mono text-xs text-muted-foreground">{doc.file_path}</p>
                         )}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
@@ -328,17 +315,16 @@ export default function DocumentsPage() {
                         </Badge>
                       </td>
                       <td className="px-4 py-3">
-                        {classificationVariants[doc.classification] ? (
+                        {doc.classification && classificationVariants[doc.classification] ? (
                           <Badge variant={classificationVariants[doc.classification]}>
                             {doc.classification}
                           </Badge>
                         ) : (
-                          <span className="text-xs text-muted-foreground">{doc.classification}</span>
+                          <span className="text-xs text-muted-foreground">{doc.classification ?? "—"}</span>
                         )}
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">v{doc.version}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{formatBytes(doc.size_bytes)}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{formatDate(doc.expires_at)}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{formatBytes(doc.file_size)}</td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{relativeTime(doc.updated_at)}</td>
                       <td className="px-4 py-3">
                         <Button variant="ghost" size="sm" onClick={() => removeDocument(doc)} className="text-red-400 hover:text-red-300" aria-label={`Delete ${doc.title}`}>

@@ -39,25 +39,25 @@ async fn list_agents(
     Query(pagination): Query<Pagination>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<PaginatedResponse<AgentResponse>>> {
-    let agents = sqlx::query_as!(
-        AgentResponse,
+    let agents = sqlx::query_as::<_, AgentResponse>(
         r#"
-        SELECT id, name, hostname, os as "os: AgentOs", version,
-               status as "status: AgentStatus", last_seen, enrolled_at,
+        SELECT id, name, hostname, os, version,
+               status, last_seen, enrolled_at,
                ip_address::text, network_zone
         FROM agents
         ORDER BY last_seen DESC NULLS LAST
         LIMIT $1 OFFSET $2
-        "#,
-        pagination.limit(),
-        pagination.offset(),
+        "#
     )
+    .bind(pagination.limit())
+    .bind(pagination.offset())
     .fetch_all(&state.db)
     .await?;
 
-    let total = sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM agents"#)
+    let total: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM agents"#)
         .fetch_one(&state.db)
-        .await?;
+        .await
+        .unwrap_or(0);
 
     Ok(Json(PaginatedResponse {
         data: agents,
@@ -75,16 +75,15 @@ async fn get_agent(
     Path(agent_id): Path<Uuid>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<AgentResponse>> {
-    let agent = sqlx::query_as!(
-        AgentResponse,
+    let agent = sqlx::query_as::<_, AgentResponse>(
         r#"
-        SELECT id, name, hostname, os as "os: AgentOs", version,
-               status as "status: AgentStatus", last_seen, enrolled_at,
+        SELECT id, name, hostname, os, version,
+               status, last_seen, enrolled_at,
                ip_address::text, network_zone
         FROM agents WHERE id = $1
-        "#,
-        agent_id,
+        "#
     )
+    .bind(agent_id)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound("Agent not found".to_string()))?;
@@ -110,17 +109,16 @@ async fn get_agent_metrics(
     Path(agent_id): Path<Uuid>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<MetricsResponse>> {
-    let metrics = sqlx::query_as!(
-        MetricPoint,
+    let metrics = sqlx::query_as::<_, MetricPoint>(
         r#"
         SELECT metric_name, value, timestamp
         FROM agent_metrics
         WHERE agent_id = $1
         ORDER BY timestamp DESC
         LIMIT 100
-        "#,
-        agent_id,
+        "#
     )
+    .bind(agent_id)
     .fetch_all(&state.db)
     .await?;
 

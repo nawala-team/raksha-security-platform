@@ -45,15 +45,15 @@ interface HoneypotSummary {
  */
 interface Interaction {
   id: string;
-  honeypot_id: string;
-  source_ip: string;
+  honeypot_id: string | null;
+  source_ip: string | null;
   source_port: number | null;
   country_code: string | null;
   asn: string | null;
-  interaction_type: string;
+  interaction_type: string | null;
   username_tried: string | null;
-  severity: string;
-  occurred_at: string;
+  status: string | null;
+  occurred_at: string | null;
 }
 
 /** Mirrors the portal's `TopAttacker`. */
@@ -260,18 +260,14 @@ export default function HoneypotsPage() {
                     <tr key={ix.id} className="border-b border-border hover:bg-muted/20">
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{relativeTime(ix.occurred_at)}</td>
                       <td className="px-4 py-3 font-mono text-xs text-foreground">
-                        {ix.source_ip}
+                        {ix.source_ip ?? "—"}
                         {ix.country_code ? ` (${ix.country_code})` : ""}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{potNames.get(ix.honeypot_id) ?? "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{ix.interaction_type.replace(/_/g, " ")}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{ix.honeypot_id ? (potNames.get(ix.honeypot_id) ?? "—") : "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{ix.interaction_type?.replace(/_/g, " ") ?? "—"}</td>
                       <td className="px-4 py-3 font-mono text-xs text-foreground">{ix.username_tried ?? "—"}</td>
                       <td className="px-4 py-3">
-                        {severityVariants[ix.severity] ? (
-                          <Badge variant={severityVariants[ix.severity]}>{ix.severity}</Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">{ix.severity}</span>
-                        )}
+                        <span className="text-xs text-muted-foreground">{ix.status ?? "—"}</span>
                       </td>
                     </tr>
                   ))}

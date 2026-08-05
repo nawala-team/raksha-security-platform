@@ -7,7 +7,7 @@ use sqlx::PgPool;
 use tracing::{info, warn};
 use uuid::Uuid;
 
-use crate::models::{HeatmapCell, Id, RiskHeatmap, RiskItem};
+use crate::models::{HeatmapCell, Id, RiskHeatmap};
 
 /// Errors specific to risk engine operations.
 #[derive(Debug, thiserror::Error)]

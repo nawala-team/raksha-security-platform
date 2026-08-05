@@ -1,6 +1,6 @@
 use axum::{
     extract::{Path, Query, State},
-    routing::{delete, get, post, put},
+    routing::{get, put},
     Json, Router,
 };
 use chrono::{DateTime, Utc};
@@ -21,12 +21,8 @@ pub fn routes() -> Router<AppState> {
         .route("/:id/role", put(update_role))
 }
 
-/// The default tenant seeded by `migrations/20260724010000_create_tenants.sql`.
 const DEFAULT_TENANT_ID: Uuid = Uuid::from_u128(0x00000000_0000_0000_0000_000000000001);
 
-/// Map a `UserRole` to the matching row name in the `roles` table.
-/// The role names are seeded by `20260724020001_create_user_roles.sql` and do
-/// not always match the enum's snake_case form (`Admin` -> `tenant_admin`).
 fn role_name_for(role: &UserRole) -> &'static str {
     match role {
         UserRole::SuperAdmin => "super_admin",
@@ -57,23 +53,23 @@ async fn list_users(
         return Err(AppError::Forbidden("Admin access required".to_string()));
     }
 
-    let users = sqlx::query_as!(
-        UserResponse,
+    let users = sqlx::query_as::<_, UserResponse>(
         r#"
-        SELECT id, email, name, role as "role: UserRole", is_active, last_login_at, created_at
+        SELECT id, email, name, role, is_active, last_login_at, created_at
         FROM users
         ORDER BY created_at DESC
         LIMIT $1 OFFSET $2
-        "#,
-        pagination.limit(),
-        pagination.offset(),
+        "#
     )
+    .bind(pagination.limit())
+    .bind(pagination.offset())
     .fetch_all(&state.db)
     .await?;
 
-    let total = sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM users"#)
+    let total: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM users"#)
         .fetch_one(&state.db)
-        .await?;
+        .await
+        .unwrap_or(0);
 
     Ok(Json(PaginatedResponse {
         data: users,
@@ -90,14 +86,13 @@ async fn get_current_user(
     State(state): State<AppState>,
     axum::Extension(claims): axum::Extension<Claims>,
 ) -> AppResult<Json<UserResponse>> {
-    let user = sqlx::query_as!(
-        UserResponse,
+    let user = sqlx::query_as::<_, UserResponse>(
         r#"
-        SELECT id, email, name, role as "role: UserRole", is_active, last_login_at, created_at
+        SELECT id, email, name, role, is_active, last_login_at, created_at
         FROM users WHERE id = $1
-        "#,
-        claims.sub,
+        "#
     )
+    .bind(claims.sub)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound("User not found".to_string()))?;
@@ -110,19 +105,17 @@ async fn get_user(
     Path(user_id): Path<Uuid>,
     axum::Extension(claims): axum::Extension<Claims>,
 ) -> AppResult<Json<UserResponse>> {
-    // Users can view themselves; admins can view anyone
-    if claims.sub != user_id && !claims.role.has_permission(&UserRole::Admin) {
-        return Err(AppError::Forbidden("Cannot view other users".to_string()));
+    if !claims.role.has_permission(&UserRole::Admin) && claims.sub != user_id {
+        return Err(AppError::Forbidden("Admin access required".to_string()));
     }
 
-    let user = sqlx::query_as!(
-        UserResponse,
+    let user = sqlx::query_as::<_, UserResponse>(
         r#"
-        SELECT id, email, name, role as "role: UserRole", is_active, last_login_at, created_at
+        SELECT id, email, name, role, is_active, last_login_at, created_at
         FROM users WHERE id = $1
-        "#,
-        user_id,
+        "#
     )
+    .bind(user_id)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound("User not found".to_string()))?;
@@ -134,6 +127,7 @@ async fn get_user(
 struct UpdateUserRequest {
     name: Option<String>,
     email: Option<String>,
+    is_active: Option<bool>,
 }
 
 async fn update_user(
@@ -142,24 +136,25 @@ async fn update_user(
     axum::Extension(claims): axum::Extension<Claims>,
     Json(payload): Json<UpdateUserRequest>,
 ) -> AppResult<Json<UserResponse>> {
-    if claims.sub != user_id && !claims.role.has_permission(&UserRole::Admin) {
-        return Err(AppError::Forbidden("Cannot update other users".to_string()));
+    if !claims.role.has_permission(&UserRole::Admin) && claims.sub != user_id {
+        return Err(AppError::Forbidden("Admin access required".to_string()));
     }
 
-    let user = sqlx::query_as!(
-        UserResponse,
+    let user = sqlx::query_as::<_, UserResponse>(
         r#"
         UPDATE users
         SET name = COALESCE($2, name),
             email = COALESCE($3, email),
+            is_active = COALESCE($4, is_active),
             updated_at = NOW()
         WHERE id = $1
-        RETURNING id, email, name, role as "role: UserRole", is_active, last_login_at, created_at
-        "#,
-        user_id,
-        payload.name,
-        payload.email,
+        RETURNING id, email, name, role, is_active, last_login_at, created_at
+        "#
     )
+    .bind(user_id)
+    .bind(&payload.name)
+    .bind(&payload.email)
+    .bind(payload.is_active)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound("User not found".to_string()))?;
@@ -178,21 +173,20 @@ async fn update_role(
     axum::Extension(claims): axum::Extension<Claims>,
     Json(payload): Json<UpdateRoleRequest>,
 ) -> AppResult<Json<UserResponse>> {
-    // Only super admins can change roles
     if !claims.role.has_permission(&UserRole::SuperAdmin) {
         return Err(AppError::Forbidden("SuperAdmin access required".to_string()));
     }
 
-    let user = sqlx::query_as!(
-        UserResponse,
+    let user = sqlx::query_as::<_, UserResponse>(
         r#"
-        UPDATE users SET role = $2, updated_at = NOW()
+        UPDATE users
+        SET role = $2, updated_at = NOW()
         WHERE id = $1
-        RETURNING id, email, name, role as "role: UserRole", is_active, last_login_at, created_at
-        "#,
-        user_id,
-        payload.role as UserRole,
+        RETURNING id, email, name, role, is_active, last_login_at, created_at
+        "#
     )
+    .bind(user_id)
+    .bind(&payload.role)
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::NotFound("User not found".to_string()))?;
@@ -205,7 +199,6 @@ struct CreateUserRequest {
     email: String,
     name: String,
     password: String,
-    #[serde(default)]
     role: Option<UserRole>,
 }
 
@@ -214,7 +207,6 @@ async fn create_user(
     axum::Extension(claims): axum::Extension<Claims>,
     Json(payload): Json<CreateUserRequest>,
 ) -> AppResult<Json<UserResponse>> {
-    // Only admins and above can create users.
     if !claims.role.has_permission(&UserRole::Admin) {
         return Err(AppError::Forbidden("Admin access required".to_string()));
     }
@@ -226,67 +218,64 @@ async fn create_user(
         ));
     }
 
-    // Reject duplicate emails.
-    let exists = sqlx::query_scalar!(
-        "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1) as \"exists!\"",
-        email,
+    let exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)"
     )
+    .bind(&email)
     .fetch_one(&state.db)
-    .await?;
+    .await
+    .unwrap_or(false);
+
     if exists {
         return Err(AppError::Conflict("Email already registered".to_string()));
     }
 
-    // Hash the password (argon2) and pick the target role.
     let password_hash = PasswordService::hash_password(&payload.password)?;
     let role = payload.role.unwrap_or(UserRole::Viewer);
     let user_id = new_id();
 
-    sqlx::query!(
+    sqlx::query(
         r#"
         INSERT INTO users (id, email, name, password_hash, role, is_active, created_at, updated_at)
         VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())
-        "#,
-        user_id,
-        email,
-        payload.name,
-        password_hash,
-        role.clone() as UserRole,
+        "#
     )
+    .bind(user_id)
+    .bind(&email)
+    .bind(&payload.name)
+    .bind(&password_hash)
+    .bind(&role)
     .execute(&state.db)
     .await?;
 
-    // Grant membership in the default tenant with the matching named role so
-    // `tenant_context_layer` can resolve a tenant for the new user.
     let role_name = role_name_for(&role);
-    let role_id = sqlx::query_scalar!("SELECT id FROM roles WHERE name = $1", role_name)
+    let role_id: Option<Uuid> = sqlx::query_scalar("SELECT id FROM roles WHERE name = $1")
+        .bind(role_name)
         .fetch_optional(&state.db)
-        .await?
-        .ok_or_else(|| {
-            AppError::Internal(format!("Built-in role '{role_name}' is missing from the database"))
-        })?;
+        .await?;
 
-    sqlx::query!(
-        r#"
-        INSERT INTO user_roles (user_id, role_id, org_id, is_active)
-        VALUES ($1, $2, $3, true)
-        ON CONFLICT (user_id, role_id, org_id) DO NOTHING
-        "#,
-        user_id,
-        role_id,
-        DEFAULT_TENANT_ID,
-    )
-    .execute(&state.db)
-    .await?;
+    if let Some(role_id) = role_id {
+        sqlx::query(
+            r#"
+            INSERT INTO user_roles (user_id, role_id, org_id, is_active)
+            VALUES ($1, $2, $3, true)
+            ON CONFLICT (user_id, role_id, org_id) DO NOTHING
+            "#
+        )
+        .bind(user_id)
+        .bind(role_id)
+        .bind(DEFAULT_TENANT_ID)
+        .execute(&state.db)
+        .await?;
+    }
 
-    let user = sqlx::query_as!(
-        UserResponse,
+    let user = sqlx::query_as::<_, UserResponse>(
         r#"
-        SELECT id, email, name, role as "role: UserRole", is_active, last_login_at, created_at
+        SELECT id, email, name, role, is_active, last_login_at, created_at
         FROM users WHERE id = $1
-        "#,
-        user_id,
+        "#
     )
+    .bind(user_id)
     .fetch_one(&state.db)
     .await?;
 
@@ -298,7 +287,6 @@ async fn delete_user(
     Path(user_id): Path<Uuid>,
     axum::Extension(claims): axum::Extension<Claims>,
 ) -> AppResult<Json<serde_json::Value>> {
-    // Only admins and above can delete users.
     if !claims.role.has_permission(&UserRole::Admin) {
         return Err(AppError::Forbidden("Admin access required".to_string()));
     }
@@ -308,13 +296,14 @@ async fn delete_user(
         ));
     }
 
-    let result = sqlx::query!("DELETE FROM users WHERE id = $1", user_id)
+    let result = sqlx::query("DELETE FROM users WHERE id = $1")
+        .bind(user_id)
         .execute(&state.db)
         .await?;
+
     if result.rows_affected() == 0 {
         return Err(AppError::NotFound("User not found".to_string()));
     }
 
     Ok(Json(serde_json::json!({ "deleted": true, "id": user_id })))
 }
-

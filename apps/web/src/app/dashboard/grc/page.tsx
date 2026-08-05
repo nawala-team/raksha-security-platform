@@ -2,15 +2,22 @@
 
 import { useState } from "react";
 import {
-  ShieldCheck, FileText, CheckCircle2, AlertTriangle, BarChart3,
+  ShieldCheck, FileText, CheckCircle2, AlertTriangle, BarChart3, Plus, Trash2, Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { DataState } from "@/components/ui/data-state";
 import { useApiData } from "@/hooks/use-api-data";
 import { api } from "@/lib/api";
@@ -137,6 +144,15 @@ function frameworkCoverage(controls: ControlRecord[]) {
 
 export default function GRCPage() {
   const [frameworkFilter, setFrameworkFilter] = useState<string>("all");
+  const [addRiskOpen, setAddRiskOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newRisk, setNewRisk] = useState({
+    title: "",
+    description: "",
+    category: "operational",
+    likelihood: 3,
+    impact: 3,
+  });
 
   const summary = useApiData<GrcSummary>(() => api.grc.summary());
   const risks = useApiData<RiskRecord[]>(() => api.grc.risks());
@@ -153,6 +169,33 @@ export default function GRCPage() {
   );
   const coverage = frameworkCoverage(controlRows);
 
+  const handleAddRisk = async () => {
+    if (!newRisk.title.trim()) return;
+    setIsSubmitting(true);
+    try {
+      await api.grc.createRisk(newRisk);
+      setAddRiskOpen(false);
+      setNewRisk({ title: "", description: "", category: "operational", likelihood: 3, impact: 3 });
+      risks.refetch();
+      summary.refetch();
+    } catch (err) {
+      console.error("Failed to create risk:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteRisk = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this risk?")) return;
+    try {
+      await api.grc.removeRisk(id);
+      risks.refetch();
+      summary.refetch();
+    } catch (err) {
+      console.error("Failed to delete risk:", err);
+    }
+  };
+
   const stats = [
     { label: "Open Risks", value: formatNumber(summary.data?.open_risks), icon: AlertTriangle, color: "text-red-400" },
     { label: "High Risks", value: formatNumber(summary.data?.high_risks), icon: BarChart3, color: "text-orange-400" },
@@ -164,9 +207,82 @@ export default function GRCPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-foreground">Governance, Risk &amp; Compliance</h2>
-        <p className="text-muted-foreground">Manage risks, policies, and control frameworks</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Governance, Risk &amp; Compliance</h2>
+          <p className="text-muted-foreground">Manage risks, policies, and control frameworks</p>
+        </div>
+        <Dialog open={addRiskOpen} onOpenChange={setAddRiskOpen}>
+          <DialogTrigger asChild>
+            <Button><Plus className="h-4 w-4 mr-2" />Add Risk</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Risk</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="risk-title">Title</Label>
+                <Input
+                  id="risk-title"
+                  value={newRisk.title}
+                  onChange={(e) => setNewRisk({ ...newRisk, title: e.target.value })}
+                  placeholder="Risk title"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="risk-desc">Description</Label>
+                <Textarea
+                  id="risk-desc"
+                  value={newRisk.description}
+                  onChange={(e) => setNewRisk({ ...newRisk, description: e.target.value })}
+                  placeholder="Risk description"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="risk-category">Category</Label>
+                  <Select value={newRisk.category} onValueChange={(v) => setNewRisk({ ...newRisk, category: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="operational">Operational</SelectItem>
+                      <SelectItem value="technical">Technical</SelectItem>
+                      <SelectItem value="compliance">Compliance</SelectItem>
+                      <SelectItem value="strategic">Strategic</SelectItem>
+                      <SelectItem value="financial">Financial</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="risk-likelihood">Likelihood (1-5)</Label>
+                  <Input
+                    id="risk-likelihood"
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={newRisk.likelihood}
+                    onChange={(e) => setNewRisk({ ...newRisk, likelihood: parseInt(e.target.value) || 1 })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="risk-impact">Impact (1-5)</Label>
+                  <Input
+                    id="risk-impact"
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={newRisk.impact}
+                    onChange={(e) => setNewRisk({ ...newRisk, impact: parseInt(e.target.value) || 1 })}
+                  />
+                </div>
+              </div>
+              <Button onClick={handleAddRisk} disabled={isSubmitting || !newRisk.title.trim()} className="w-full">
+                {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Create Risk
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <DataState
@@ -232,6 +348,7 @@ export default function GRCPage() {
                             <th scope="col" className="px-4 py-3 text-center font-medium text-muted-foreground">Score</th>
                             <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Review Due</th>
                             <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                            <th scope="col" className="px-4 py-3 text-center font-medium text-muted-foreground">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -247,6 +364,11 @@ export default function GRCPage() {
                               <td className="px-4 py-3 text-muted-foreground">{formatDate(risk.review_date)}</td>
                               <td className="px-4 py-3 capitalize">
                                 <Badge variant={riskStatusVariants[risk.status] ?? "outline"}>{risk.status.replace(/_/g, " ")}</Badge>
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <Button variant="ghost" size="sm" onClick={() => handleDeleteRisk(risk.id)}>
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
                               </td>
                             </tr>
                           ))}

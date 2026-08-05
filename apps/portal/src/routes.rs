@@ -27,6 +27,8 @@ pub fn build_router(state: AppState) -> Router {
         .nest("/auth", handlers::auth::routes())
         .nest("/health", handlers::health::routes())
         .route("/agents/enroll", axum::routing::post(handlers::enrollment::enroll_agent))
+        .route("/agents/heartbeat", axum::routing::post(handlers::enrollment::agent_heartbeat))
+        .route("/agents/metrics", axum::routing::post(handlers::enrollment::agent_metrics))
         .route("/agent/install", axum::routing::get(serve_install_script))
         .route("/agent/install.ps1", axum::routing::get(serve_install_ps1));
 

@@ -62,7 +62,7 @@ impl AuditStore {
         // `metadata` alongside the verbatim application-level action name.
         let metadata = build_metadata(&entry);
 
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO audit_trail (
                 id, timestamp, actor_id, action_type, action_category,
@@ -79,20 +79,20 @@ impl AuditStore {
                 $10::text::audit_risk_level,
                 $11, $12
             )
-            "#,
-            entry.id,
-            entry.timestamp,
-            entry.user_id,
-            entry.action.db_action_type(),
-            entry.action.db_action_category(),
-            entry.resource_type,
-            entry.resource_id,
-            entry.ip_address,
-            metadata,
-            entry.action.db_risk_level(),
-            entry.hash,
-            entry.previous_hash,
+            "#
         )
+        .bind(entry.id)
+        .bind(entry.timestamp)
+        .bind(entry.user_id)
+        .bind(entry.action.db_action_type())
+        .bind(entry.action.db_action_category())
+        .bind(&entry.resource_type)
+        .bind(&entry.resource_id)
+        .bind(&entry.ip_address)
+        .bind(&metadata)
+        .bind(entry.action.db_risk_level())
+        .bind(&entry.hash)
+        .bind(&entry.previous_hash)
         .execute(&self.db)
         .await?;
 
@@ -100,7 +100,7 @@ impl AuditStore {
     }
 
     pub async fn get_latest_hash(&self) -> AppResult<Option<String>> {
-        let result = sqlx::query_scalar!(
+        let result: Option<String> = sqlx::query_scalar(
             r#"SELECT integrity_hash FROM audit_trail ORDER BY timestamp DESC, id DESC LIMIT 1"#
         )
         .fetch_optional(&self.db)

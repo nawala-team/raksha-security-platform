@@ -1,3 +1,7 @@
+//! Reporter module for sending metrics and alerts to the portal.
+
+#![allow(dead_code)]
+
 use crate::collector::{Alert, MetricPayload};
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
