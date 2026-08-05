@@ -62,12 +62,25 @@ export function useRealtime({
 }: UseRealtimeOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef(0);
   const [state, setState] = useState<RealtimeState>({
     connected: false,
     sessionId: null,
     subscribedChannels: [],
     reconnectAttempts: 0,
   });
+
+  // Use refs for callbacks to avoid re-creating WebSocket on callback changes
+  const onEventRef = useRef(onEvent);
+  const onConnectRef = useRef(onConnect);
+  const onDisconnectRef = useRef(onDisconnect);
+
+  // Update refs when callbacks change
+  useEffect(() => {
+    onEventRef.current = onEvent;
+    onConnectRef.current = onConnect;
+    onDisconnectRef.current = onDisconnect;
+  }, [onEvent, onConnect, onDisconnect]);
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -77,10 +90,11 @@ export function useRealtime({
       wsRef.current = ws;
 
       ws.onopen = () => {
+        reconnectAttemptsRef.current = 0;
         setState((s) => ({ ...s, connected: true, reconnectAttempts: 0 }));
         // Subscribe to channels
         ws.send(JSON.stringify({ action: "subscribe", channels }));
-        onConnect?.();
+        onConnectRef.current?.();
       };
 
       ws.onmessage = (event) => {
@@ -94,7 +108,7 @@ export function useRealtime({
               setState((s) => ({ ...s, subscribedChannels: msg.channels }));
               break;
             case "event":
-              onEvent?.(msg as WsRealtimeEvent);
+              onEventRef.current?.(msg as WsRealtimeEvent);
               break;
             case "pong":
               break;
@@ -106,11 +120,13 @@ export function useRealtime({
 
       ws.onclose = () => {
         setState((s) => ({ ...s, connected: false }));
-        onDisconnect?.();
-        if (autoReconnect && state.reconnectAttempts < maxReconnectAttempts) {
-          const delay = Math.min(1000 * 2 ** state.reconnectAttempts, 30000);
+        onDisconnectRef.current?.();
+        
+        if (autoReconnect && reconnectAttemptsRef.current < maxReconnectAttempts) {
+          const delay = Math.min(1000 * 2 ** reconnectAttemptsRef.current, 30000);
           reconnectTimerRef.current = setTimeout(() => {
-            setState((s) => ({ ...s, reconnectAttempts: s.reconnectAttempts + 1 }));
+            reconnectAttemptsRef.current += 1;
+            setState((s) => ({ ...s, reconnectAttempts: reconnectAttemptsRef.current }));
             connect();
           }, delay);
         }
@@ -122,14 +138,16 @@ export function useRealtime({
     } catch {
       // Connection failed
     }
-  }, [channels, onEvent, onConnect, onDisconnect, autoReconnect, maxReconnectAttempts, state.reconnectAttempts]);
+  }, [channels, autoReconnect, maxReconnectAttempts]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
     }
     wsRef.current?.close();
     wsRef.current = null;
+    reconnectAttemptsRef.current = 0;
     setState({ connected: false, sessionId: null, subscribedChannels: [], reconnectAttempts: 0 });
   }, []);
 
@@ -147,7 +165,7 @@ export function useRealtime({
       clearInterval(heartbeat);
       disconnect();
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [connect, disconnect, sendPing]);
 
   return { ...state, disconnect, reconnect: connect };
 }
