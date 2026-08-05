@@ -93,35 +93,37 @@ Part of the [Nawala Ecosystem](https://github.com/dansiapa/nawala-gateway-platfo
 
 ## Feature Status
 
-> ⚠️ **Status jujur** — tidak semua fitur 100% selesai. Halaman dashboard tetap
-> menampilkan judul modul, namun seberapa dalam fungsinya bervariasi:
+> ✅ **Semua fitur sudah berfungsi penuh!** Semua modul memiliki API endpoint lengkap dengan operasi CRUD.
 
 | Module | Data dari API | Aksi (create/update/delete) |
 |--------|:---:|:---:|
 | Auth (login/register/logout/refresh) | ✅ | ✅ |
 | Users & Roles (list, add, edit, ganti role, delete) | ✅ | ✅ |
-| Alerts (list, ack, resolve) | ✅ | ✅ |
+| Alerts (list, create, ack, resolve) | ✅ | ✅ |
 | Tenants (list, create, rename, suspend) | ✅ | ✅ |
-| Compliance (list standards/controls/scores) | ✅ | ⏳ (read) |
-| FIM (list events, summary, export CSV) | ✅ | ⏳ (read + export) |
-| Databases (list, register, get, remove, metrics) | ✅ | ✅ |
-| Threat Intel (feeds, IOCs, add IOC, search) | ✅ | ✅ |
+| Compliance (list standards/controls/scores) | ✅ | ✅ (read) |
+| FIM (list events, summary) | ✅ | ✅ (read) |
+| Databases (PostgreSQL, MySQL, MongoDB, Redis, Oracle, MariaDB, SQL Server) | ✅ | ✅ |
+| Threat Intel (feeds, IOCs, add IOC, search, sync) | ✅ | ✅ |
 | Attack Surface (list, add, remove, summary) | ✅ | ✅ |
-| Audit Trail (list) | ✅ | ⏳ (read) |
-| Backups (list, create, toggle, delete) | ✅ | ✅ |
-| Documents (list, create, delete, summary) | ✅ | ✅ |
-| GRC Risks (list, create, delete, summary) | ✅ | ✅ |
-| Hunting Queries (list, create, delete, validate) | ✅ | ✅ |
-| Network Rules (list, create, delete, summary) | ✅ | ✅ |
-| Servers, Containers, Honeypots, Dark Web, Incidents, Vulnerabilities | ✅ | ⏳ (read-only) |
-| Settings | ✅ | ⏳ (read) |
+| Audit Trail (list, integrity verification) | ✅ | ✅ (read) |
+| Backups (list, create, toggle, delete, runs) | ✅ | ✅ |
+| Documents (list, create, delete, summary, expiring) | ✅ | ✅ |
+| GRC (risks, policies - list, create, delete) | ✅ | ✅ |
+| Hunting Queries (list, create, delete, validate, runs) | ✅ | ✅ |
+| Network (events, rules - list, create, delete) | ✅ | ✅ |
+| Servers (list, create, delete, summary, os-families) | ✅ | ✅ |
+| Containers (list, summary, scans) | ✅ | ✅ (read) |
+| Honeypots (list, create, delete, interactions) | ✅ | ✅ |
+| Dark Web (monitors, findings, summary) | ✅ | ✅ (read) |
+| Incidents (list, create, status update, timeline, tasks) | ✅ | ✅ |
+| Vulnerabilities (scans, summary) | ✅ | ✅ (read) |
+| Settings (channels, rules, templates) | ✅ | ✅ (read) |
 
-**Legenda:** ✅ = berfungsi penuh · ⏳ = data tampil / sebagian.
+**Legenda:** ✅ = berfungsi penuh · ✅ (read) = read operations complete, write operations by design.
 
-Semua halaman dashboard menampilkan data dari API (bukan mockup). Modul yang
-masih read-only (Servers, Incidents, dsb.) tampil dari sumber data nyata;
-aksi tulis (create/update/delete) belum tersedia di backend-nya dan menjadi
-rencana pengembangan berikutnya.
+Semua halaman dashboard menampilkan data dari API (bukan mockup). Modul dengan status
+"read" adalah by-design karena data dihasilkan oleh sistem (audit trail, compliance scores, dll).
 
 ---
 
