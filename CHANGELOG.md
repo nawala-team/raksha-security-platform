@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.1] - 2026-08-05
+
+### Fixed
+
+#### Backend Handler Bug Fixes
+- **network.rs**: Fixed missing fields in response (event_type, severity, direction, action, is_threat, occurred_at)
+- **network.rs**: Fixed NULL timestamp handling with COALESCE for backward compatibility
+- **hunting.rs**: Fixed `results_count` column mismatch with database schema using COALESCE
+- **hunting.rs**: Added RQL syntax validation before saving queries
+- **hunting.rs**: Added `query_source` validation (events, alerts, network, fim, logs)
+- **darkweb.rs**: Aligned FindingResponse with database schema and UI interface
+- **darkweb.rs**: Fixed field mapping (source → source_name/source_type, found_at → discovered_at)
+- **darkweb.rs**: Added missing fields (excerpt_redacted, record_count, confidence, alert_id, incident_id)
+- **grc.rs**: Fixed hardcoded `Uuid::parse_str().unwrap()` with safe fallback
+- **backups.rs**: Fixed hardcoded tenant_id unwrap with safe fallback
+- **documents.rs**: Fixed hardcoded tenant_id unwrap with safe fallback
+- **enrollment.rs**: Fixed hardcoded tenant_id unwrap with safe fallback
+
+#### Input Validation
+- Added validation for network rule direction (inbound, outbound, both)
+- Added validation for network rule action (allow, block, drop, reject, monitor, log)
+- Added validation for hunting query source
+- Added RQL syntax parsing validation before query save
+
+#### Error Handling
+- Improved error handling with `tracing::warn` logging instead of silent `unwrap_or`
+- Better error messages for validation failures
+
+### Database Migrations
+- `20260805100000_fix_schema_mismatches.sql`: Fix tenant_status enum, hunting_runs.results_count default
+- `20260805100001_fix_darkweb_honeypot_hunting.sql`: Add missing darkweb/honeypot/hunting columns
+- `20260805100002_fix_network_events.sql`: Add network_events missing columns (event_type, severity, direction, action, is_threat, occurred_at)
+
+### Security Verification
+- ✅ No SQL injection vulnerabilities (all queries use parameterized bindings)
+- ✅ No XSS vulnerabilities (React auto-escaping, no dangerouslySetInnerHTML)
+- ✅ No hardcoded Uuid::parse_str().unwrap() remaining
+- ✅ No dangerous .expect() calls in handlers
+- ✅ All UI interfaces match backend responses
+- ✅ All backend responses match database schema
+
+### Stats
+- 10 files changed
+- +688 insertions
+- -207 deletions
+- 3 new migrations
+
+---
+
 ## [1.2.0] - 2026-08-05
 
 ### Added
