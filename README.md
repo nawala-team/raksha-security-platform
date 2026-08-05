@@ -54,7 +54,7 @@ Part of the [Nawala Ecosystem](https://github.com/dansiapa/nawala-gateway-platfo
   <tr>
     <td align="center" width="25%"><strong>🖥️ Server Monitor</strong><br/><sub>Real-time server health, resource utilization, and anomaly detection</sub></td>
     <td align="center" width="25%"><strong>🌐 Network Scanner</strong><br/><sub>Port scanning, vulnerability assessment, and topology mapping</sub></td>
-    <td align="center" width="25%"><strong>🗄️ Database Guard</strong><br/><sub>Multi-DB security auditing, access monitoring, encryption checks</sub></td>
+    <td align="center" width="25%"><strong>🗄️ Database Guard</strong><br/><sub>Multi-DB security: PostgreSQL, MySQL, MongoDB, Oracle, Redis, MariaDB, SQL Server</sub></td>
     <td align="center" width="25%"><strong>📋 Compliance Engine</strong><br/><sub>Automated checks against CIS, NIST, PCI-DSS, ISO 27001</sub></td>
   </tr>
   <tr>
