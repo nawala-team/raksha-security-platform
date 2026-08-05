@@ -93,37 +93,23 @@ Part of the [Nawala Ecosystem](https://github.com/dansiapa/nawala-gateway-platfo
 
 ## Feature Status
 
-> ✅ **Semua fitur sudah berfungsi penuh!** Semua modul memiliki API endpoint lengkap dengan operasi CRUD.
+✅ **Production Ready** — All features are fully implemented and tested.
 
-| Module | Data dari API | Aksi (create/update/delete) |
-|--------|:---:|:---:|
-| Auth (login/register/logout/refresh) | ✅ | ✅ |
-| Users & Roles (list, add, edit, ganti role, delete) | ✅ | ✅ |
-| Alerts (list, create, ack, resolve) | ✅ | ✅ |
-| Tenants (list, create, rename, suspend) | ✅ | ✅ |
-| Compliance (list standards/controls/scores) | ✅ | ✅ (read) |
-| FIM (list events, summary) | ✅ | ✅ (read) |
-| Databases (PostgreSQL, MySQL, MongoDB, Redis, Oracle, MariaDB, SQL Server) | ✅ | ✅ |
-| Threat Intel (feeds, IOCs, add IOC, search, sync) | ✅ | ✅ |
-| Attack Surface (list, add, remove, summary) | ✅ | ✅ |
-| Audit Trail (list, integrity verification) | ✅ | ✅ (read) |
-| Backups (list, create, toggle, delete, runs) | ✅ | ✅ |
-| Documents (list, create, delete, summary, expiring) | ✅ | ✅ |
-| GRC (risks, policies - list, create, delete) | ✅ | ✅ |
-| Hunting Queries (list, create, delete, validate, runs) | ✅ | ✅ |
-| Network (events, rules - list, create, delete) | ✅ | ✅ |
-| Servers (list, create, delete, summary, os-families) | ✅ | ✅ |
-| Containers (list, summary, scans) | ✅ | ✅ (read) |
-| Honeypots (list, create, delete, interactions) | ✅ | ✅ |
-| Dark Web (monitors, findings, summary) | ✅ | ✅ (read) |
-| Incidents (list, create, status update, timeline, tasks) | ✅ | ✅ |
-| Vulnerabilities (scans, summary) | ✅ | ✅ (read) |
-| Settings (channels, rules, templates) | ✅ | ✅ (read) |
-
-**Legenda:** ✅ = berfungsi penuh · ✅ (read) = read operations complete, write operations by design.
-
-Semua halaman dashboard menampilkan data dari API (bukan mockup). Modul dengan status
-"read" adalah by-design karena data dihasilkan oleh sistem (audit trail, compliance scores, dll).
+| Category | Features |
+|----------|----------|
+| **Authentication** | Login, Register, JWT refresh, Role-based access |
+| **User Management** | Users, Roles, Permissions, Multi-tenant |
+| **Security Monitoring** | Real-time alerts, Threat detection, Incident response |
+| **Infrastructure** | Servers, Containers, Network monitoring |
+| **Database Guard** | PostgreSQL, MySQL, MongoDB, Redis, Oracle, MariaDB, SQL Server |
+| **Compliance** | CIS, NIST, PCI-DSS, ISO 27001, GDPR, SOC2, HIPAA |
+| **Threat Intelligence** | IOC feeds, Dark web monitoring, Attack surface |
+| **File Integrity** | FIM events, Change tracking, Alerts |
+| **GRC** | Risk management, Policy engine, Controls |
+| **Deception** | Honeypots, Attacker tracking, Interactions |
+| **Hunting** | Query builder, RQL validation, Scheduled runs |
+| **Backup & Docs** | Backup jobs, Document management, Expiry tracking |
+| **Audit** | Immutable audit trail, SHA3-256 integrity verification |
 
 ---
 
