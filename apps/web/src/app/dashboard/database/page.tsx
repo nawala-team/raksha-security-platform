@@ -44,6 +44,10 @@ interface DbRow {
   version: string | null;
   alerts: number;
   created_at: string;
+  // Oracle-specific fields
+  service_name?: string | null;
+  sid?: string | null;
+  tns_alias?: string | null;
 }
 
 const typeIcons: Record<string, string> = {
@@ -51,6 +55,20 @@ const typeIcons: Record<string, string> = {
   mysql: "MySQL",
   mongodb: "MongoDB",
   redis: "Redis",
+  oracle: "Oracle",
+  mariadb: "MariaDB",
+  sqlserver: "SQL Server",
+};
+
+// Default ports for each database type
+const defaultPorts: Record<string, string> = {
+  postgresql: "5432",
+  mysql: "3306",
+  mongodb: "27017",
+  redis: "6379",
+  oracle: "1521",
+  mariadb: "3306",
+  sqlserver: "1433",
 };
 
 export default function DatabasePage() {
@@ -68,13 +86,25 @@ export default function DatabasePage() {
     username: "",
     password: "",
     ssl_enabled: true,
+    // Oracle-specific fields
+    service_name: "",
+    sid: "",
   });
+
+  // Update port when db_type changes
+  const handleDbTypeChange = (newType: string) => {
+    setForm({
+      ...form,
+      db_type: newType,
+      port: defaultPorts[newType] || "5432",
+    });
+  };
 
   const submitRegister = async () => {
     setBusy(true);
     setMessage(null);
     try {
-      await api.databases.register({
+      const payload: Record<string, unknown> = {
         name: form.name,
         db_type: form.db_type,
         host: form.host,
@@ -82,9 +112,27 @@ export default function DatabasePage() {
         username: form.username,
         password: form.password,
         ssl_enabled: form.ssl_enabled,
-      });
+      };
+      
+      // Add Oracle-specific fields if applicable
+      if (form.db_type === "oracle") {
+        if (form.service_name) payload.service_name = form.service_name;
+        if (form.sid) payload.sid = form.sid;
+      }
+      
+      await api.databases.register(payload);
       setShowRegister(false);
-      setForm({ name: "", db_type: "postgresql", host: "127.0.0.1", port: "5432", username: "", password: "", ssl_enabled: true });
+      setForm({ 
+        name: "", 
+        db_type: "postgresql", 
+        host: "127.0.0.1", 
+        port: "5432", 
+        username: "", 
+        password: "", 
+        ssl_enabled: true,
+        service_name: "",
+        sid: "",
+      });
       refetch();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Failed to register database");
@@ -165,13 +213,16 @@ export default function DatabasePage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="db-type">Type</Label>
-                <Select value={form.db_type} onValueChange={(v) => setForm({ ...form, db_type: v })}>
+                <Select value={form.db_type} onValueChange={handleDbTypeChange}>
                   <SelectTrigger id="db-type" className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="postgresql">PostgreSQL</SelectItem>
                     <SelectItem value="mysql">MySQL</SelectItem>
                     <SelectItem value="mongodb">MongoDB</SelectItem>
                     <SelectItem value="redis">Redis</SelectItem>
+                    <SelectItem value="oracle">Oracle</SelectItem>
+                    <SelectItem value="mariadb">MariaDB</SelectItem>
+                    <SelectItem value="sqlserver">SQL Server</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -192,6 +243,33 @@ export default function DatabasePage() {
                 <Input id="db-pass" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
               </div>
             </div>
+            
+            {/* Oracle-specific fields */}
+            {form.db_type === "oracle" && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 border-t border-border pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="db-service-name">Service Name</Label>
+                  <Input 
+                    id="db-service-name" 
+                    placeholder="ORCL" 
+                    value={form.service_name} 
+                    onChange={(e) => setForm({ ...form, service_name: e.target.value })} 
+                  />
+                  <p className="text-xs text-muted-foreground">Oracle service name (e.g., ORCL, XEPDB1)</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="db-sid">SID (optional)</Label>
+                  <Input 
+                    id="db-sid" 
+                    placeholder="XE" 
+                    value={form.sid} 
+                    onChange={(e) => setForm({ ...form, sid: e.target.value })} 
+                  />
+                  <p className="text-xs text-muted-foreground">Oracle System Identifier (legacy, use Service Name if possible)</p>
+                </div>
+              </div>
+            )}
+            
             {message && <p className="text-sm text-red-400">{message}</p>}
             <div className="flex gap-2">
               <Button onClick={submitRegister} size="sm" disabled={busy || !form.name || !form.host}>
