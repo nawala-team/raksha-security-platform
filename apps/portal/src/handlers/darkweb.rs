@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use raksha_auth::Claims;
 use raksha_core::error::{AppError, AppResult};
-use raksha_core::models::{Pagination, PaginatedResponse, PaginationMeta};
+use raksha_core::models::{PaginatedResponse, Pagination, PaginationMeta};
 
 use crate::state::AppState;
 
@@ -51,7 +51,7 @@ async fn list_monitors(
                scan_interval_mins, created_at
         FROM darkweb_monitors
         ORDER BY name
-        "#
+        "#,
     )
     .fetch_all(&state.db)
     .await?;
@@ -63,15 +63,19 @@ async fn list_monitors(
 struct FindingResponse {
     id: Uuid,
     monitor_id: Option<Uuid>,
-    title: Option<String>,
+    title: String,
     description: Option<String>,
-    finding_type: Option<String>,
-    severity: Option<String>,
-    status: Option<String>,
-    source: Option<String>,
-    url: Option<String>,
-    content: Option<String>,
-    found_at: Option<DateTime<Utc>>,
+    finding_type: String,
+    severity: String,
+    status: String,
+    source_name: Option<String>,
+    source_type: Option<String>,
+    excerpt_redacted: Option<String>,
+    record_count: Option<i32>,
+    confidence: Option<i16>,
+    alert_id: Option<Uuid>,
+    incident_id: Option<Uuid>,
+    discovered_at: DateTime<Utc>,
 }
 
 async fn list_findings(
@@ -82,11 +86,12 @@ async fn list_findings(
     let findings = sqlx::query_as::<_, FindingResponse>(
         r#"
         SELECT id, monitor_id, title, description, finding_type, severity,
-               status, source, url, content, found_at
+               status, source_name, source_type, excerpt_redacted,
+               record_count, confidence, alert_id, incident_id, discovered_at
         FROM darkweb_findings
-        ORDER BY found_at DESC
+        ORDER BY discovered_at DESC
         LIMIT $1 OFFSET $2
-        "#
+        "#,
     )
     .bind(pagination.limit())
     .bind(pagination.offset())
@@ -117,9 +122,10 @@ async fn get_finding(
     let finding = sqlx::query_as::<_, FindingResponse>(
         r#"
         SELECT id, monitor_id, title, description, finding_type, severity,
-               status, source, url, content, found_at
+               status, source_name, source_type, excerpt_redacted,
+               record_count, confidence, alert_id, incident_id, discovered_at
         FROM darkweb_findings WHERE id = $1
-        "#
+        "#,
     )
     .bind(id)
     .fetch_optional(&state.db)
@@ -151,12 +157,11 @@ async fn darkweb_summary(
     State(state): State<AppState>,
     _claims: axum::Extension<Claims>,
 ) -> AppResult<Json<DarkwebSummary>> {
-    let active_monitors: i64 = sqlx::query_scalar(
-        r#"SELECT COUNT(*) FROM darkweb_monitors WHERE is_enabled = true"#
-    )
-    .fetch_one(&state.db)
-    .await
-    .unwrap_or(0);
+    let active_monitors: i64 =
+        sqlx::query_scalar(r#"SELECT COUNT(*) FROM darkweb_monitors WHERE is_enabled = true"#)
+            .fetch_one(&state.db)
+            .await
+            .unwrap_or(0);
 
     let row: FindingSummaryRow = sqlx::query_as(
         r#"
@@ -166,11 +171,16 @@ async fn darkweb_summary(
             COUNT(*) FILTER (WHERE severity = 'critical')::bigint as critical,
             COUNT(*) FILTER (WHERE finding_type = 'credential_leak')::bigint as creds
         FROM darkweb_findings
-        "#
+        "#,
     )
     .fetch_one(&state.db)
     .await
-    .unwrap_or(FindingSummaryRow { total: 0, new: 0, critical: 0, creds: 0 });
+    .unwrap_or(FindingSummaryRow {
+        total: 0,
+        new: 0,
+        critical: 0,
+        creds: 0,
+    });
 
     Ok(Json(DarkwebSummary {
         active_monitors,
