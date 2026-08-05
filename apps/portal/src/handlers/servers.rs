@@ -19,6 +19,7 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/", get(list_servers).post(create_server))
         .route("/summary", get(server_summary))
+        .route("/os-families", get(list_os_families))
         .route("/:id", get(get_server).delete(delete_server))
 }
 
@@ -235,4 +236,109 @@ async fn delete_server(
 
     tracing::info!(server_id = %id, deleted_by = %claims.sub, "Server deleted");
     Ok(Json(serde_json::json!({"status": "deleted", "id": id})))
+}
+
+// ============================================================
+// OS Families endpoint
+// ============================================================
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+struct OsFamilyResponse {
+    id: String,
+    display_name: String,
+    category: String,
+    vendor: Option<String>,
+    icon: Option<String>,
+    sort_order: i32,
+}
+
+#[derive(Debug, Deserialize)]
+struct OsFamilyQuery {
+    #[serde(default)]
+    category: Option<String>,
+}
+
+/// List all supported OS families for dropdown/selection
+async fn list_os_families(
+    State(state): State<AppState>,
+    Query(query): Query<OsFamilyQuery>,
+) -> AppResult<Json<serde_json::Value>> {
+    // Try to fetch from database first
+    let db_families: Vec<OsFamilyResponse> = if let Some(cat) = &query.category {
+        sqlx::query_as(
+            r#"
+            SELECT id, display_name, category, vendor, icon, sort_order
+            FROM os_families
+            WHERE is_active = true AND category = $1
+            ORDER BY sort_order, display_name
+            "#
+        )
+        .bind(cat)
+        .fetch_all(&state.db)
+        .await
+        .unwrap_or_default()
+    } else {
+        sqlx::query_as(
+            r#"
+            SELECT id, display_name, category, vendor, icon, sort_order
+            FROM os_families
+            WHERE is_active = true
+            ORDER BY sort_order, display_name
+            "#
+        )
+        .fetch_all(&state.db)
+        .await
+        .unwrap_or_default()
+    };
+
+    // If database has data, return it
+    if !db_families.is_empty() {
+        return Ok(Json(serde_json::json!({
+            "os_families": db_families,
+            "categories": ["linux", "windows", "macos", "bsd", "unix", "container_os"]
+        })));
+    }
+
+    // Fallback to hardcoded list if table doesn't exist yet
+    Ok(Json(serde_json::json!({
+        "os_families": [
+            // Linux distributions
+            {"id": "linux", "display_name": "Linux", "category": "linux", "vendor": "Various"},
+            {"id": "ubuntu", "display_name": "Ubuntu", "category": "linux", "vendor": "Canonical"},
+            {"id": "debian", "display_name": "Debian", "category": "linux", "vendor": "Debian Project"},
+            {"id": "rhel", "display_name": "Red Hat Enterprise Linux", "category": "linux", "vendor": "Red Hat"},
+            {"id": "centos", "display_name": "CentOS", "category": "linux", "vendor": "CentOS Project"},
+            {"id": "rocky", "display_name": "Rocky Linux", "category": "linux", "vendor": "Rocky Enterprise"},
+            {"id": "alma", "display_name": "AlmaLinux", "category": "linux", "vendor": "AlmaLinux OS Foundation"},
+            {"id": "fedora", "display_name": "Fedora", "category": "linux", "vendor": "Fedora Project"},
+            {"id": "suse", "display_name": "SUSE Linux Enterprise", "category": "linux", "vendor": "SUSE"},
+            {"id": "amazon", "display_name": "Amazon Linux", "category": "linux", "vendor": "Amazon"},
+            {"id": "oracle_linux", "display_name": "Oracle Linux", "category": "linux", "vendor": "Oracle"},
+            
+            // Container OS
+            {"id": "alpine", "display_name": "Alpine Linux", "category": "container_os", "vendor": "Alpine Linux"},
+            {"id": "flatcar", "display_name": "Flatcar Container Linux", "category": "container_os", "vendor": "Kinvolk/Microsoft"},
+            {"id": "bottlerocket", "display_name": "Bottlerocket", "category": "container_os", "vendor": "Amazon"},
+            {"id": "coreos", "display_name": "CoreOS", "category": "container_os", "vendor": "Red Hat"},
+            {"id": "photon", "display_name": "VMware Photon OS", "category": "container_os", "vendor": "VMware"},
+            
+            // Windows
+            {"id": "windows", "display_name": "Windows", "category": "windows", "vendor": "Microsoft"},
+            {"id": "windows_server", "display_name": "Windows Server", "category": "windows", "vendor": "Microsoft"},
+            
+            // macOS
+            {"id": "macos", "display_name": "macOS", "category": "macos", "vendor": "Apple"},
+            
+            // BSD
+            {"id": "freebsd", "display_name": "FreeBSD", "category": "bsd", "vendor": "FreeBSD Foundation"},
+            {"id": "openbsd", "display_name": "OpenBSD", "category": "bsd", "vendor": "OpenBSD Project"},
+            {"id": "netbsd", "display_name": "NetBSD", "category": "bsd", "vendor": "NetBSD Foundation"},
+            
+            // Enterprise Unix
+            {"id": "solaris", "display_name": "Oracle Solaris", "category": "unix", "vendor": "Oracle"},
+            {"id": "aix", "display_name": "IBM AIX", "category": "unix", "vendor": "IBM"},
+            {"id": "hpux", "display_name": "HP-UX", "category": "unix", "vendor": "HPE"}
+        ],
+        "categories": ["linux", "windows", "macos", "bsd", "unix", "container_os"]
+    })))
 }

@@ -172,6 +172,10 @@ export const api = {
     list: () => apiClient.get("/servers"),
     get: (id: string) => apiClient.get(`/servers/${id}`),
     summary: () => apiClient.get("/servers/summary"),
+    osFamilies: (category?: string) => {
+      const query = category ? `?category=${category}` : "";
+      return apiClient.get(`/servers/os-families${query}`);
+    },
   },
   network: {
     events: (params?: Record<string, string>) => {
