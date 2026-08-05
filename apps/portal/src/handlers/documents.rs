@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use raksha_auth::Claims;
 use raksha_core::error::{AppError, AppResult};
-use raksha_core::models::{new_id, Pagination, PaginatedResponse, PaginationMeta, UserRole};
+use raksha_core::models::{new_id, PaginatedResponse, Pagination, PaginationMeta, UserRole};
 
 use crate::state::AppState;
 
@@ -56,7 +56,7 @@ async fn list_documents(
         FROM documents
         ORDER BY created_at DESC
         LIMIT $1 OFFSET $2
-        "#
+        "#,
     )
     .bind(pagination.limit())
     .bind(pagination.offset())
@@ -90,7 +90,7 @@ async fn get_document(
                classification, version, file_path, mime_type, file_size,
                checksum, created_at, updated_at
         FROM documents WHERE id = $1
-        "#
+        "#,
     )
     .bind(id)
     .fetch_optional(&state.db)
@@ -119,7 +119,7 @@ async fn list_expiring(
         FROM documents
         WHERE retention_until IS NOT NULL AND retention_until <= $1 AND status != 'archived'
         ORDER BY retention_until
-        "#
+        "#,
     )
     .bind(soon)
     .fetch_all(&state.db)
@@ -206,9 +206,15 @@ struct CreateDocumentRequest {
     version: String,
 }
 
-fn default_doc_type() -> String { "policy".to_string() }
-fn default_classification() -> String { "internal".to_string() }
-fn default_version() -> String { "1.0".to_string() }
+fn default_doc_type() -> String {
+    "policy".to_string()
+}
+fn default_classification() -> String {
+    "internal".to_string()
+}
+fn default_version() -> String {
+    "1.0".to_string()
+}
 
 async fn create_document(
     State(state): State<AppState>,
@@ -221,11 +227,15 @@ async fn create_document(
         ));
     }
     if payload.title.trim().is_empty() {
-        return Err(AppError::Validation("Document title is required".to_string()));
+        return Err(AppError::Validation(
+            "Document title is required".to_string(),
+        ));
     }
 
     let id = new_id();
-    let org_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+    let org_id = claims.tenant_id.unwrap_or_else(|| {
+        Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap_or_else(|_| Uuid::nil())
+    });
     let slug = payload.title.to_lowercase().replace(' ', "-");
 
     let doc = sqlx::query_as::<_, DocumentResponse>(

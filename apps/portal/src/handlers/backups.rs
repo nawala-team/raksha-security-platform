@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use raksha_auth::Claims;
 use raksha_core::error::{AppError, AppResult};
-use raksha_core::models::{new_id, Pagination, PaginatedResponse, PaginationMeta, UserRole};
+use raksha_core::models::{new_id, PaginatedResponse, Pagination, PaginationMeta, UserRole};
 
 use crate::state::AppState;
 
@@ -65,7 +65,7 @@ async fn list_jobs(
                next_run_at, last_size_bytes, success_count, failure_count, created_at
         FROM backup_jobs
         ORDER BY name
-        "#
+        "#,
     )
     .fetch_all(&state.db)
     .await?;
@@ -86,7 +86,7 @@ async fn get_job(
                encryption_algo, verify_after_backup, last_status, last_run_at,
                next_run_at, last_size_bytes, success_count, failure_count, created_at
         FROM backup_jobs WHERE id = $1
-        "#
+        "#,
     )
     .bind(id)
     .fetch_optional(&state.db)
@@ -125,7 +125,7 @@ async fn list_runs(
         FROM backup_runs
         ORDER BY started_at DESC NULLS LAST
         LIMIT $1 OFFSET $2
-        "#
+        "#,
     )
     .bind(pagination.limit())
     .bind(pagination.offset())
@@ -163,7 +163,7 @@ async fn list_job_runs(
         WHERE job_id = $1
         ORDER BY started_at DESC NULLS LAST
         LIMIT $2 OFFSET $3
-        "#
+        "#,
     )
     .bind(job_id)
     .bind(pagination.limit())
@@ -227,11 +227,15 @@ async fn backup_summary(
             COUNT(*) FILTER (WHERE is_enabled)::bigint as enabled,
             COUNT(*) FILTER (WHERE NOT is_enabled)::bigint as disabled
         FROM backup_jobs
-        "#
+        "#,
     )
     .fetch_one(&state.db)
     .await
-    .unwrap_or(JobSummaryRow { total: 0, enabled: 0, disabled: 0 });
+    .unwrap_or(JobSummaryRow {
+        total: 0,
+        enabled: 0,
+        disabled: 0,
+    });
 
     let runs: RunSummaryRow = sqlx::query_as(
         r#"
@@ -242,12 +246,17 @@ async fn backup_summary(
             COALESCE(SUM(size_bytes), 0)::bigint as bytes
         FROM backup_runs
         WHERE started_at >= $1
-        "#
+        "#,
     )
     .bind(since)
     .fetch_one(&state.db)
     .await
-    .unwrap_or(RunSummaryRow { total: 0, success: 0, failed: 0, bytes: 0 });
+    .unwrap_or(RunSummaryRow {
+        total: 0,
+        success: 0,
+        failed: 0,
+        bytes: 0,
+    });
 
     Ok(Json(BackupSummary {
         total_jobs: jobs.total,
@@ -281,10 +290,18 @@ struct CreateJobRequest {
     verify_after_backup: bool,
 }
 
-fn default_backup_type() -> String { "full".to_string() }
-fn default_target_kind() -> String { "directory".to_string() }
-fn default_true() -> bool { true }
-fn default_retention() -> i32 { 30 }
+fn default_backup_type() -> String {
+    "full".to_string()
+}
+fn default_target_kind() -> String {
+    "directory".to_string()
+}
+fn default_true() -> bool {
+    true
+}
+fn default_retention() -> i32 {
+    30
+}
 
 async fn create_job(
     State(state): State<AppState>,
@@ -297,11 +314,15 @@ async fn create_job(
         ));
     }
     if payload.name.trim().is_empty() {
-        return Err(AppError::Validation("Backup job name is required".to_string()));
+        return Err(AppError::Validation(
+            "Backup job name is required".to_string(),
+        ));
     }
 
     let id = new_id();
-    let tenant_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+    let tenant_id = claims.tenant_id.unwrap_or_else(|| {
+        Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap_or_else(|_| Uuid::nil())
+    });
     let job = sqlx::query_as::<_, BackupJobResponse>(
         r#"
         INSERT INTO backup_jobs
@@ -314,7 +335,7 @@ async fn create_job(
                   schedule_interval_mins, retention_days, encryption_enabled,
                   encryption_algo, verify_after_backup, last_status, last_run_at,
                   next_run_at, last_size_bytes, success_count, failure_count, created_at
-        "#
+        "#,
     )
     .bind(id)
     .bind(tenant_id)
@@ -345,7 +366,10 @@ async fn toggle_job(
             "Operator access required to update backup jobs".to_string(),
         ));
     }
-    let enabled = payload.get("is_enabled").and_then(|v| v.as_bool()).unwrap_or(true);
+    let enabled = payload
+        .get("is_enabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
     let job = sqlx::query_as::<_, BackupJobResponse>(
         r#"
         UPDATE backup_jobs SET is_enabled = $2, updated_at = NOW()
@@ -355,7 +379,7 @@ async fn toggle_job(
                   schedule_interval_mins, retention_days, encryption_enabled,
                   encryption_algo, verify_after_backup, last_status, last_run_at,
                   next_run_at, last_size_bytes, success_count, failure_count, created_at
-        "#
+        "#,
     )
     .bind(id)
     .bind(enabled)

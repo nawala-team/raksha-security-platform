@@ -53,7 +53,7 @@ async fn list_risks(
                created_at, updated_at
         FROM grc_risks
         ORDER BY risk_score DESC, review_date
-        "#
+        "#,
     )
     .fetch_all(&state.db)
     .await?;
@@ -72,7 +72,7 @@ async fn get_risk(
                risk_score, owner, status, mitigation_plan, review_date,
                created_at, updated_at
         FROM grc_risks WHERE id = $1
-        "#
+        "#,
     )
     .bind(id)
     .fetch_optional(&state.db)
@@ -105,7 +105,7 @@ async fn list_policies(
                review_cycle_days, created_at, updated_at
         FROM grc_policies
         ORDER BY title
-        "#
+        "#,
     )
     .fetch_all(&state.db)
     .await?;
@@ -136,7 +136,7 @@ async fn list_controls(
                evidence, last_assessed, created_at
         FROM grc_controls
         ORDER BY framework, control_ref
-        "#
+        "#,
     )
     .fetch_all(&state.db)
     .await?;
@@ -188,11 +188,16 @@ async fn grc_summary(
             COUNT(*) FILTER (WHERE status != 'closed')::bigint as open,
             COUNT(*) FILTER (WHERE review_date <= CURRENT_DATE)::bigint as due
         FROM grc_risks
-        "#
+        "#,
     )
     .fetch_one(&state.db)
     .await
-    .unwrap_or(RiskSummaryRow { total: 0, high: 0, open: 0, due: 0 });
+    .unwrap_or(RiskSummaryRow {
+        total: 0,
+        high: 0,
+        open: 0,
+        due: 0,
+    });
 
     let policies: PolicySummaryRow = sqlx::query_as(
         r#"
@@ -200,11 +205,14 @@ async fn grc_summary(
             COUNT(*)::bigint as total,
             COUNT(*) FILTER (WHERE status = 'published')::bigint as published
         FROM grc_policies
-        "#
+        "#,
     )
     .fetch_one(&state.db)
     .await
-    .unwrap_or(PolicySummaryRow { total: 0, published: 0 });
+    .unwrap_or(PolicySummaryRow {
+        total: 0,
+        published: 0,
+    });
 
     let controls: ControlSummaryRow = sqlx::query_as(
         r#"
@@ -212,11 +220,14 @@ async fn grc_summary(
             COUNT(*)::bigint as total,
             COUNT(*) FILTER (WHERE status = 'implemented')::bigint as implemented
         FROM grc_controls
-        "#
+        "#,
     )
     .fetch_one(&state.db)
     .await
-    .unwrap_or(ControlSummaryRow { total: 0, implemented: 0 });
+    .unwrap_or(ControlSummaryRow {
+        total: 0,
+        implemented: 0,
+    });
 
     Ok(Json(GrcSummary {
         total_risks: risks.total,
@@ -244,9 +255,15 @@ struct CreateRiskRequest {
     mitigation_plan: Option<String>,
 }
 
-fn default_category() -> String { "operational".to_string() }
-fn default_likelihood() -> i16 { 3 }
-fn default_impact() -> i16 { 3 }
+fn default_category() -> String {
+    "operational".to_string()
+}
+fn default_likelihood() -> i16 {
+    3
+}
+fn default_impact() -> i16 {
+    3
+}
 
 async fn create_risk(
     State(state): State<AppState>,
@@ -263,7 +280,9 @@ async fn create_risk(
     }
 
     let id = new_id();
-    let tenant_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+    let tenant_id = claims.tenant_id.unwrap_or_else(|| {
+        Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap_or_else(|_| Uuid::nil())
+    });
     let review_date = (chrono::Utc::now() + chrono::Duration::days(90)).date_naive();
 
     let risk = sqlx::query_as::<_, RiskResponse>(
@@ -274,7 +293,7 @@ async fn create_risk(
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'identified', $9, $10, NOW(), NOW())
         RETURNING id, title, description, category, likelihood, impact, risk_score,
                   owner, status, mitigation_plan, review_date, created_at, updated_at
-        "#
+        "#,
     )
     .bind(id)
     .bind(tenant_id)
@@ -325,8 +344,12 @@ struct CreatePolicyRequest {
     review_cycle_days: i32,
 }
 
-fn default_version() -> String { "1.0".to_string() }
-fn default_review_cycle() -> i32 { 365 }
+fn default_version() -> String {
+    "1.0".to_string()
+}
+fn default_review_cycle() -> i32 {
+    365
+}
 
 async fn create_policy(
     State(state): State<AppState>,
@@ -341,10 +364,12 @@ async fn create_policy(
         return Err(AppError::Validation("Title is required".to_string()));
     }
 
-    // Use default tenant for now
-    let tenant_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+    // Use tenant from claims or default
+    let tenant_id = claims.tenant_id.unwrap_or_else(|| {
+        Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap_or_else(|_| Uuid::nil())
+    });
     let content = payload.content.unwrap_or_default();
-    
+
     let id = new_id();
     let policy = sqlx::query_as::<_, PolicyResponse>(
         r#"

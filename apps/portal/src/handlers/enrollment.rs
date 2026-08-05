@@ -12,10 +12,10 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
+use uuid::Uuid;
 
 use crate::AppState;
 
@@ -91,16 +91,22 @@ pub async fn enroll_agent(
     Json(req): Json<EnrollAgentRequest>,
 ) -> impl IntoResponse {
     if !req.token.starts_with("rkat_") || req.token.len() < 40 {
-        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({
-            "error": "invalid_token_format",
-            "message": "Token format invalid"
-        })));
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "invalid_token_format",
+                "message": "Token format invalid"
+            })),
+        );
     }
     if req.fingerprint.hostname.is_empty() || req.fingerprint.machine_id.is_empty() {
-        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({
-            "error": "invalid_fingerprint",
-            "message": "hostname and machine_id required"
-        })));
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "invalid_fingerprint",
+                "message": "hostname and machine_id required"
+            })),
+        );
     }
 
     // Validate token exists and not expired
@@ -116,25 +122,32 @@ pub async fn enroll_agent(
     let token_info = match token_row {
         Ok(Some(t)) => t,
         Ok(None) => {
-            return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({
-                "error": "invalid_token",
-                "message": "Token invalid, expired, or exhausted"
-            })));
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({
+                    "error": "invalid_token",
+                    "message": "Token invalid, expired, or exhausted"
+                })),
+            );
         }
         Err(e) => {
             tracing::error!("DB error validating token: {}", e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-                "error": "internal_error",
-                "message": "Failed to validate token"
-            })));
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": "internal_error",
+                    "message": "Failed to validate token"
+                })),
+            );
         }
     };
 
     // Decrement token uses
-    let _ = sqlx::query("UPDATE enrollment_tokens SET use_count = use_count + 1 WHERE token_id = $1")
-        .bind(token_info.id)
-        .execute(&state.db)
-        .await;
+    let _ =
+        sqlx::query("UPDATE enrollment_tokens SET use_count = use_count + 1 WHERE token_id = $1")
+            .bind(token_info.id)
+            .execute(&state.db)
+            .await;
 
     let agent_id = Uuid::now_v7();
 
@@ -156,10 +169,13 @@ pub async fn enroll_agent(
 
     if let Err(e) = insert_result {
         tracing::error!("Failed to insert agent: {}", e);
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-            "error": "enrollment_failed",
-            "message": "Failed to register agent"
-        })));
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": "enrollment_failed",
+                "message": "Failed to register agent"
+            })),
+        );
     }
 
     let response = EnrollAgentResponse {
@@ -192,7 +208,9 @@ pub async fn generate_token(
     let portal_url = &state.config.portal_url;
 
     // Insert token into database
-    let org_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+    let org_id = claims.tenant_id.unwrap_or_else(|| {
+        Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap_or_else(|_| Uuid::nil())
+    });
     let created_by = claims.sub; // Use authenticated user's ID
     let token_prefix = &token[..16.min(token.len())];
     // Use last 64 chars of token as hash (already random)
@@ -200,7 +218,7 @@ pub async fn generate_token(
     // Convert Vec<String> to JSON for JSONB columns
     let labels_json = serde_json::json!(req.labels);
     let modules_json = serde_json::json!(req.allowed_modules);
-    
+
     let insert_result = sqlx::query(
         r#"INSERT INTO enrollment_tokens (token_id, token_hash, token_prefix, org_id, agent_name, labels, allowed_modules, expires_at, max_uses, use_count, created_by, created_at)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, $10, NOW())"#
@@ -220,10 +238,13 @@ pub async fn generate_token(
 
     if let Err(e) = insert_result {
         tracing::error!("Failed to create enrollment token: {}", e);
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-            "error": "token_creation_failed",
-            "message": "Failed to create enrollment token"
-        })));
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": "token_creation_failed",
+                "message": "Failed to create enrollment token"
+            })),
+        );
     }
 
     let response = GenerateTokenResponse {
@@ -244,9 +265,7 @@ pub async fn generate_token(
 }
 
 /// GET /api/v1/agents/tokens
-pub async fn list_tokens(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn list_tokens(State(state): State<AppState>) -> impl IntoResponse {
     let tokens = sqlx::query_as::<_, EnrollmentTokenRow>(
         r#"SELECT token_id as id, token_prefix as token, expires_at, (max_uses - use_count) as uses_remaining, agent_name as description 
            FROM enrollment_tokens 
@@ -257,18 +276,26 @@ pub async fn list_tokens(
     .await
     .unwrap_or_default();
 
-    let token_list: Vec<_> = tokens.iter().map(|t| serde_json::json!({
-        "id": t.id,
-        "token": t.token,
-        "expires_at": t.expires_at,
-        "uses_remaining": t.uses_remaining,
-        "description": t.description,
-    })).collect();
+    let token_list: Vec<_> = tokens
+        .iter()
+        .map(|t| {
+            serde_json::json!({
+                "id": t.id,
+                "token": t.token,
+                "expires_at": t.expires_at,
+                "uses_remaining": t.uses_remaining,
+                "description": t.description,
+            })
+        })
+        .collect();
 
-    (StatusCode::OK, Json(serde_json::json!({ 
-        "tokens": token_list, 
-        "total": token_list.len() 
-    })))
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "tokens": token_list,
+            "total": token_list.len()
+        })),
+    )
 }
 
 /// DELETE /api/v1/agents/tokens/:token_id
@@ -282,16 +309,22 @@ pub async fn revoke_token(
         .await;
 
     match result {
-        Ok(_) => (StatusCode::OK, Json(serde_json::json!({
-            "token_id": token_id,
-            "status": "revoked"
-        }))),
+        Ok(_) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "token_id": token_id,
+                "status": "revoked"
+            })),
+        ),
         Err(e) => {
             tracing::error!("Failed to revoke token: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-                "error": "revoke_failed",
-                "message": "Failed to revoke token"
-            })))
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": "revoke_failed",
+                    "message": "Failed to revoke token"
+                })),
+            )
         }
     }
 }
@@ -302,11 +335,14 @@ pub async fn rotate_certificate(
     Path(agent_id): Path<Uuid>,
 ) -> impl IntoResponse {
     let expires = Utc::now() + chrono::Duration::days(30);
-    (StatusCode::OK, Json(serde_json::json!({
-        "agent_id": agent_id,
-        "expires_at": expires,
-        "status": "rotated"
-    })))
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "agent_id": agent_id,
+            "expires_at": expires,
+            "status": "rotated"
+        })),
+    )
 }
 
 // ─── Agent Public Endpoints (token-based auth) ─────────────────────────────
@@ -337,13 +373,13 @@ pub struct MetricData {
 async fn validate_agent_token(db: &sqlx::PgPool, agent_id: &str, token: &str) -> bool {
     // Check if agent exists with matching token_hash
     let result = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM agents WHERE id::text = $1 AND token_hash = $2"
+        "SELECT COUNT(*) FROM agents WHERE id::text = $1 AND token_hash = $2",
     )
     .bind(agent_id)
     .bind(token)
     .fetch_one(db)
     .await;
-    
+
     matches!(result, Ok(count) if count > 0)
 }
 
@@ -354,15 +390,18 @@ pub async fn agent_heartbeat(
 ) -> impl IntoResponse {
     // Validate token
     if !validate_agent_token(&state.db, &req.agent_id, &req.token).await {
-        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({
-            "error": "invalid_credentials",
-            "message": "Invalid agent ID or token"
-        })));
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "error": "invalid_credentials",
+                "message": "Invalid agent ID or token"
+            })),
+        );
     }
 
     // Update last_seen
     let update_result = sqlx::query(
-        "UPDATE agents SET last_seen = NOW(), status = 'online'::agent_status WHERE id::text = $1"
+        "UPDATE agents SET last_seen = NOW(), status = 'online'::agent_status WHERE id::text = $1",
     )
     .bind(&req.agent_id)
     .execute(&state.db)
@@ -370,17 +409,23 @@ pub async fn agent_heartbeat(
 
     if let Err(e) = update_result {
         tracing::error!("Failed to update agent heartbeat: {}", e);
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-            "error": "heartbeat_failed",
-            "message": "Failed to update heartbeat"
-        })));
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": "heartbeat_failed",
+                "message": "Failed to update heartbeat"
+            })),
+        );
     }
 
     tracing::debug!("Agent heartbeat received: {}", req.agent_id);
-    (StatusCode::OK, Json(serde_json::json!({
-        "status": "ok",
-        "server_time": Utc::now()
-    })))
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "status": "ok",
+            "server_time": Utc::now()
+        })),
+    )
 }
 
 /// POST /api/v1/agents/metrics - Agent metrics (public, token auth)
@@ -390,18 +435,26 @@ pub async fn agent_metrics(
 ) -> impl IntoResponse {
     // Validate token
     if !validate_agent_token(&state.db, &req.agent_id, &req.token).await {
-        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({
-            "error": "invalid_credentials",
-            "message": "Invalid agent ID or token"
-        })));
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "error": "invalid_credentials",
+                "message": "Invalid agent ID or token"
+            })),
+        );
     }
 
     let agent_uuid = match Uuid::parse_str(&req.agent_id) {
         Ok(u) => u,
-        Err(_) => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({
-            "error": "invalid_agent_id",
-            "message": "Invalid agent ID format"
-        }))),
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "error": "invalid_agent_id",
+                    "message": "Invalid agent ID format"
+                })),
+            )
+        }
     };
 
     // Insert metrics
@@ -429,11 +482,16 @@ pub async fn agent_metrics(
         .execute(&state.db)
         .await;
 
-    tracing::debug!("Agent metrics received: {} metrics from {}", inserted, req.agent_id);
-    (StatusCode::OK, Json(serde_json::json!({
-        "status": "ok",
-        "metrics_received": inserted
-    })))
+    tracing::debug!(
+        "Agent metrics received: {} metrics from {}",
+        inserted,
+        req.agent_id
+    );
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "status": "ok",
+            "metrics_received": inserted
+        })),
+    )
 }
-
-

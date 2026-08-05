@@ -7,14 +7,20 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 use uuid::Uuid;
 
 use raksha_auth::Claims;
 use raksha_core::error::{AppError, AppResult};
 use raksha_core::hunting::Parser;
-use raksha_core::models::{new_id, Pagination, PaginatedResponse, PaginationMeta, UserRole};
+use raksha_core::models::{new_id, PaginatedResponse, Pagination, PaginationMeta, UserRole};
 
 use crate::state::AppState;
+
+/// Default tenant ID - in production this should come from claims
+fn default_tenant_id() -> Uuid {
+    Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap_or_else(|_| Uuid::nil())
+}
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -57,7 +63,7 @@ async fn list_queries(
                run_count, created_at
         FROM hunting_queries
         ORDER BY name
-        "#
+        "#,
     )
     .fetch_all(&state.db)
     .await?;
@@ -76,8 +82,8 @@ async fn get_query(
                schedule_interval_mins, alert_on_hits, alert_threshold,
                alert_severity, last_run_at, next_run_at, last_hit_count,
                run_count, created_at
-        FROM hunting_queries WHERE id = $1
-        "#
+        FROM hunting_queries WHERE id = \$1
+        "#,
     )
     .bind(id)
     .fetch_optional(&state.db)
@@ -105,12 +111,13 @@ async fn list_runs(
 ) -> AppResult<Json<PaginatedResponse<HuntingRunResponse>>> {
     let runs = sqlx::query_as::<_, HuntingRunResponse>(
         r#"
-        SELECT id, query_id, status, results_count, error_message,
-               started_at, completed_at
+        SELECT id, query_id, status,
+               COALESCE(results_count, total_hits::integer, 0) as results_count,
+               error_message, started_at, completed_at
         FROM hunting_runs
-        ORDER BY created_at DESC
+        ORDER BY started_at DESC
         LIMIT $1 OFFSET $2
-        "#
+        "#,
     )
     .bind(pagination.limit())
     .bind(pagination.offset())
@@ -120,7 +127,10 @@ async fn list_runs(
     let total: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM hunting_runs"#)
         .fetch_one(&state.db)
         .await
-        .unwrap_or(0);
+        .unwrap_or_else(|e| {
+            warn!("Failed to count hunting_runs: {}", e);
+            0
+        });
 
     Ok(Json(PaginatedResponse {
         data: runs,
@@ -141,13 +151,14 @@ async fn list_query_runs(
 ) -> AppResult<Json<PaginatedResponse<HuntingRunResponse>>> {
     let runs = sqlx::query_as::<_, HuntingRunResponse>(
         r#"
-        SELECT id, query_id, status, results_count, error_message,
-               started_at, completed_at
+        SELECT id, query_id, status,
+               COALESCE(results_count, total_hits::integer, 0) as results_count,
+               error_message, started_at, completed_at
         FROM hunting_runs
         WHERE query_id = $1
-        ORDER BY created_at DESC
+        ORDER BY started_at DESC
         LIMIT $2 OFFSET $3
-        "#
+        "#,
     )
     .bind(query_id)
     .bind(pagination.limit())
@@ -159,7 +170,10 @@ async fn list_query_runs(
         .bind(query_id)
         .fetch_one(&state.db)
         .await
-        .unwrap_or(0);
+        .unwrap_or_else(|e| {
+            warn!("Failed to count runs for query {}: {}", query_id, e);
+            0
+        });
 
     Ok(Json(PaginatedResponse {
         data: runs,
@@ -223,7 +237,12 @@ struct CreateQueryRequest {
     query_source: String,
 }
 
-fn default_source() -> String { "events".to_string() }
+fn default_source() -> String {
+    "events".to_string()
+}
+
+/// Valid query sources
+const VALID_SOURCES: &[&str] = &["events", "alerts", "network", "fim", "logs"];
 
 async fn create_query(
     State(state): State<AppState>,
@@ -242,8 +261,23 @@ async fn create_query(
         return Err(AppError::Validation("RQL query is required".to_string()));
     }
 
+    // Validate RQL syntax before saving
+    if let Err(e) = Parser::parse_query(&payload.rql) {
+        return Err(AppError::Validation(format!("Invalid RQL syntax: {}", e)));
+    }
+
+    // Validate query_source
+    let query_source = payload.query_source.to_lowercase();
+    if !VALID_SOURCES.contains(&query_source.as_str()) {
+        return Err(AppError::Validation(format!(
+            "Invalid query_source '{}'. Must be one of: {:?}",
+            payload.query_source, VALID_SOURCES
+        )));
+    }
+
     let id = new_id();
-    let tenant_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+    // Get tenant_id from claims or use default
+    let tenant_id = claims.tenant_id.unwrap_or_else(default_tenant_id);
 
     let query = sqlx::query_as::<_, HuntingQueryResponse>(
         r#"
@@ -261,11 +295,12 @@ async fn create_query(
     .bind(&payload.name)
     .bind(&payload.description)
     .bind(&payload.rql)
-    .bind(&payload.query_source)
+    .bind(&query_source)
     .bind(claims.sub)
     .fetch_one(&state.db)
     .await?;
 
+    tracing::info!(query_id = %id, name = %payload.name, "Hunting query created");
     Ok(Json(query))
 }
 
@@ -286,5 +321,6 @@ async fn remove_query(
     if result.rows_affected() == 0 {
         return Err(AppError::NotFound("Hunting query not found".to_string()));
     }
+    tracing::info!(query_id = %id, deleted_by = %claims.sub, "Hunting query deleted");
     Ok(Json(serde_json::json!({ "deleted": true, "id": id })))
 }
