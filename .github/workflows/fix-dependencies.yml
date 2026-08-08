@@ -5,11 +5,16 @@ on:
   schedule:
     - cron: '0 0 * * 0'  # Weekly on Sunday
 
+permissions:
+  contents: write
+
 jobs:
   fix-rust:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - uses: dtolnay/rust-toolchain@stable
       - name: Update Cargo dependencies
         run: cargo update
@@ -17,32 +22,32 @@ jobs:
         run: |
           cargo install cargo-audit
           cargo audit fix || true
-      - name: Commit changes
+      - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f Cargo.lock || true
           git diff --staged --quiet || git commit -m "chore: update Cargo.lock dependencies"
-      - name: Push changes
-        run: git push origin main || true
+          git push || true
 
   fix-npm:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/setup-node@v5
         with:
           node-version: '24'
       - name: Fix npm vulnerabilities
         working-directory: apps/web
         run: |
-          npm install
+          npm install --legacy-peer-deps || npm install --force || true
           npm audit fix --force || true
-      - name: Commit changes
+      - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add apps/web/package-lock.json apps/web/package.json || true
           git diff --staged --quiet || git commit -m "chore: fix npm vulnerabilities"
-      - name: Push changes
-        run: git push origin main || true
+          git push || true
