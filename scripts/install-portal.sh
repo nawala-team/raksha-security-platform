@@ -111,7 +111,7 @@ host = "0.0.0.0"
 port = 8080
 
 [database]
-url = "postgres://raksha:raksha_secret@localhost:5432/raksha"
+url = "postgres://raksha:${POSTGRES_PASSWORD:-CHANGE_ME}@localhost:5432/raksha"
 max_connections = 20
 
 [redis]
@@ -136,7 +136,7 @@ setup_database() {
     if sudo -u postgres psql -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw raksha; then
         log_ok "Database exists"; return
     fi
-    sudo -u postgres psql -c "CREATE USER raksha WITH PASSWORD 'raksha_secret';" 2>/dev/null || true
+    sudo -u postgres psql -c "CREATE USER raksha WITH PASSWORD '${POSTGRES_PASSWORD:-CHANGE_ME}';" 2>/dev/null || true
     sudo -u postgres psql -c "CREATE DATABASE raksha OWNER raksha;" 2>/dev/null || true
     log_ok "Database configured"
 }

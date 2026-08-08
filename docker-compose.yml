@@ -1,8 +1,8 @@
 x-common-env: &common-env
   RUST_LOG: info
-  DATABASE_URL: postgres://raksha:${POSTGRES_PASSWORD:-raksha_secret}@postgres:5432/raksha
+  DATABASE_URL: postgres://raksha:${POSTGRES_PASSWORD}@postgres:5432/raksha
   REDIS_URL: redis://redis:6379
-  TIMESCALE_URL: postgres://raksha:${POSTGRES_PASSWORD:-raksha_secret}@timescaledb:5432/raksha_metrics
+  TIMESCALE_URL: postgres://raksha:${POSTGRES_PASSWORD}@timescaledb:5432/raksha_metrics
   OPENSEARCH_URL: http://opensearch:9200
 
 x-siem-env: &siem-env
@@ -40,7 +40,7 @@ services:
       SIEM_TLS_VERIFY: ${SIEM_TLS_VERIFY:-true}
       SIEM_FLUSH_INTERVAL: ${SIEM_FLUSH_INTERVAL:-5s}
       SIEM_BUFFER_SIZE: ${SIEM_BUFFER_SIZE:-256}
-      JWT_SECRET: ${JWT_SECRET:-change_me_in_production}
+      JWT_SECRET: ${JWT_SECRET}
       PORTAL_HOST: 0.0.0.0
       PORTAL_PORT: "8080"
     depends_on:
@@ -131,7 +131,7 @@ services:
     environment:
       POSTGRES_DB: raksha
       POSTGRES_USER: raksha
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-raksha_secret}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -170,7 +170,7 @@ services:
     environment:
       POSTGRES_DB: raksha_metrics
       POSTGRES_USER: raksha
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-raksha_secret}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - timescale-data:/var/lib/postgresql/data
     healthcheck:

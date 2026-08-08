@@ -122,7 +122,7 @@ async fn create_risk(
                 created_at: now,
                 updated_at: now,
             };
-            (StatusCode::CREATED, Json(serde_json::to_value(risk).unwrap())).into_response()
+            (StatusCode::CREATED, Json(serde_json::json!(risk))).into_response()
         }
         Err(e) => {
             (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response()
@@ -275,7 +275,7 @@ async fn create_policy(
         tenant.tenant_id, &req.title, &req.version, &req.content,
         req.effective_date, review_days,
     ).await {
-        Ok(policy) => (StatusCode::CREATED, Json(serde_json::to_value(policy).unwrap())).into_response(),
+        Ok(policy) => (StatusCode::CREATED, Json(serde_json::json!(policy))).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response(),
     }
 }
@@ -388,7 +388,7 @@ async fn acknowledge_policy(
 ) -> impl IntoResponse {
     let mgr = PolicyManager::new(state.pool);
     match mgr.acknowledge_policy(tenant.tenant_id, id, req.user_id).await {
-        Ok(ack) => (StatusCode::OK, Json(serde_json::to_value(ack).unwrap())).into_response(),
+        Ok(ack) => (StatusCode::OK, Json(serde_json::json!(ack))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": e.to_string()}))).into_response(),
     }
 }
@@ -535,7 +535,7 @@ async fn add_control_mapping(
 ) -> impl IntoResponse {
     let mapper = ControlMapper::new(state.pool);
     match mapper.add_mapping(&req).await {
-        Ok(mapping) => (StatusCode::CREATED, Json(serde_json::to_value(mapping).unwrap())).into_response(),
+        Ok(mapping) => (StatusCode::CREATED, Json(serde_json::json!(mapping))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": e.to_string()}))).into_response(),
     }
 }
@@ -583,7 +583,7 @@ async fn get_dashboard(
                 partial_controls: partial as u64,
                 not_implemented_controls: not_impl as u64,
             };
-            (StatusCode::OK, Json(serde_json::to_value(dashboard).unwrap())).into_response()
+            (StatusCode::OK, Json(serde_json::json!(dashboard))).into_response()
         }
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response(),
     }
@@ -595,7 +595,7 @@ async fn get_heatmap(
 ) -> impl IntoResponse {
     let engine = RiskEngine::new(state.pool);
     match engine.generate_heatmap(tenant.tenant_id).await {
-        Ok(heatmap) => (StatusCode::OK, Json(serde_json::to_value(heatmap).unwrap())).into_response(),
+        Ok(heatmap) => (StatusCode::OK, Json(serde_json::json!(heatmap))).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response(),
     }
 }
@@ -622,7 +622,7 @@ async fn get_coverage(
 
     let mapper = ControlMapper::new(state.pool);
     match mapper.get_coverage(tenant.tenant_id, fw).await {
-        Ok(coverage) => (StatusCode::OK, Json(serde_json::to_value(coverage).unwrap())).into_response(),
+        Ok(coverage) => (StatusCode::OK, Json(serde_json::json!(coverage))).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response(),
     }
 }
@@ -648,7 +648,7 @@ async fn get_gap_analysis(
 
     let mapper = ControlMapper::new(state.pool);
     match mapper.gap_analysis(tenant.tenant_id, fw).await {
-        Ok(gaps) => (StatusCode::OK, Json(serde_json::to_value(gaps).unwrap())).into_response(),
+        Ok(gaps) => (StatusCode::OK, Json(serde_json::json!(gaps))).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response(),
     }
 }

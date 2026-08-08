@@ -1,20 +1,26 @@
 # Default configuration for Raksha Security Platform
+# NOTE: All sensitive values MUST be overridden via environment variables in production
+# See .env.example for required environment variables
 
 [server]
 host = "0.0.0.0"
 port = 8080
 
 [database]
-url = "postgres://raksha:raksha_dev@localhost:5432/raksha_platform"
+# Override with RAKSHA__DATABASE__URL environment variable
+url = "postgres://localhost:5432/raksha_platform"
 max_connections = 10
 min_connections = 2
 
 [redis]
+# Override with RAKSHA__REDIS__URL environment variable
 url = "redis://localhost:6379"
 pool_size = 10
 
 [jwt]
-secret = "dev-only-change-in-production"
+# SECURITY: Must be overridden with RAKSHA__JWT__SECRET in production
+# Generate with: openssl rand -base64 64
+secret = ""
 access_token_ttl_secs = 900
 refresh_token_ttl_secs = 604800
 issuer = "raksha-platform"
@@ -22,4 +28,4 @@ issuer = "raksha-platform"
 [app]
 name = "Raksha Security Platform"
 environment = "development"
-log_level = "debug"
+log_level = "info"

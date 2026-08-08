@@ -1,17 +1,24 @@
 use raksha_core::error::AppResult;
 use raksha_core::models::{new_id, AlertStatus};
 use sqlx::PgPool;
+use once_cell::sync::Lazy;
 
 use crate::models::{Alert, AlertFilter, CreateAlert};
+
+// Pre-compiled regex patterns for sanitization
+static HTML_TAG_RE: Lazy<regex::Regex> = Lazy::new(|| {
+    regex::Regex::new(r"<[^>]*>").expect("Invalid HTML tag regex pattern")
+});
+static JS_URL_RE: Lazy<regex::Regex> = Lazy::new(|| {
+    regex::Regex::new(r"(?i)javascript:").expect("Invalid JS URL regex pattern")
+});
 
 /// Sanitize input string to prevent XSS - strips HTML tags
 fn sanitize_input(input: &str) -> String {
     // Remove HTML tags
-    let re = regex::Regex::new(r"<[^>]*>").unwrap();
-    let no_tags = re.replace_all(input, "");
+    let no_tags = HTML_TAG_RE.replace_all(input, "");
     // Remove javascript: urls
-    let re2 = regex::Regex::new(r"(?i)javascript:").unwrap();
-    let cleaned = re2.replace_all(&no_tags, "");
+    let cleaned = JS_URL_RE.replace_all(&no_tags, "");
     // Escape remaining special chars
     cleaned
         .replace('&', "&amp;")

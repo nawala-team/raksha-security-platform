@@ -57,7 +57,7 @@ host = "0.0.0.0"
 port = 8080
 
 [database]
-url = "postgres://raksha:raksha_secret@localhost:5432/raksha"
+url = "postgres://raksha:${POSTGRES_PASSWORD:-CHANGE_ME}@localhost:5432/raksha"
 max_connections = 20
 
 [redis]
