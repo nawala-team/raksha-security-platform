@@ -1,0 +1,52 @@
+name: Fix Dependencies
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+
+jobs:
+  fix-rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Update Cargo dependencies
+        run: cargo update
+      - name: Audit Rust dependencies
+        run: |
+          cargo install cargo-audit
+          cargo audit fix || true
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Cargo.lock
+          git diff --staged --quiet || git commit -m "chore: update Cargo.lock dependencies"
+
+  fix-npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fix npm vulnerabilities
+        working-directory: apps/web
+        run: |
+          npm install
+          npm audit fix --force || true
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add apps/web/package-lock.json apps/web/package.json
+          git diff --staged --quiet || git commit -m "chore: fix npm vulnerabilities"
+
+  push-fixes:
+    needs: [fix-rust, fix-npm]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Push all fixes
+        run: git push origin main
