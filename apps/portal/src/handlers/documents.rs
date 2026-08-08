@@ -203,6 +203,7 @@ struct CreateDocumentRequest {
     #[serde(default = "default_classification")]
     classification: String,
     #[serde(default = "default_version")]
+    #[allow(dead_code)]
     version: String,
 }
 
