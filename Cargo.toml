@@ -69,7 +69,7 @@ config = "0.14"
 dotenvy = "0.15"
 
 # Validation
-validator = { version = "0.18", features = ["derive"] }
+validator = { version = "0.20", features = ["derive"] }
 
 # Internal crates
 raksha-core = { path = "crates/raksha-core" }
