@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/nawala-team/raksha-security-platform/releases/tag/v1.3.0"><img src="https://img.shields.io/badge/version-1.3.0-blue?style=for-the-badge" alt="Version"/></a>
+  <a href="https://github.com/nawala-team/raksha-security-platform/releases/tag/v1.3.1"><img src="https://img.shields.io/badge/version-1.3.1-blue?style=for-the-badge" alt="Version"/></a>
   <a href="#features"><img src="https://img.shields.io/badge/status-active-brightgreen?style=for-the-badge" alt="Status"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="License"/></a>
   <a href="#nawala-ecosystem"><img src="https://img.shields.io/badge/ecosystem-Nawala-orange?style=for-the-badge" alt="Nawala"/></a>

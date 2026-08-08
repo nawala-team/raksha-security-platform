@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.1] - 2026-08-08
+
+### Security
+- **Fixed**: All 35 vulnerabilities resolved (npm + Cargo)
+- **Updated**: jsonwebtoken 9.3 → 11.0
+- **Updated**: idna → 1.1.1
+- **Updated**: validator 0.18 → 0.20
+- **Updated**: npm dependencies to latest secure versions
+
+### Added
+- GitHub Actions workflow for automatic dependency fixes
+
+### Changed
+- All repository URLs updated to nawala-team organization
+
+---
+
 ## [1.3.0] - 2026-08-08
 
 ### Added
