@@ -43,6 +43,9 @@ pub struct Claims {
     pub sid: Uuid,
     /// Token type: "access" or "refresh"
     pub token_type: String,
+    /// Tenant ID (for multi-tenancy)
+    #[serde(default)]
+    pub tenant_id: Option<Uuid>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -109,6 +112,7 @@ impl TokenService {
             jti: Uuid::now_v7(),
             sid: session_id,
             token_type: "access".to_string(),
+            tenant_id: None,
         };
 
         let refresh_claims = Claims {
@@ -122,6 +126,7 @@ impl TokenService {
             jti: Uuid::now_v7(),
             sid: session_id,
             token_type: "refresh".to_string(),
+            tenant_id: None,
         };
 
         // Explicitly specify algorithm — prevents algorithm confusion attacks
