@@ -9,7 +9,7 @@ jobs:
   fix-rust:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - name: Update Cargo dependencies
         run: cargo update
@@ -27,10 +27,10 @@ jobs:
   fix-npm:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: '22'
+          node-version: '24'
       - name: Fix npm vulnerabilities
         working-directory: apps/web
         run: |
@@ -47,6 +47,6 @@ jobs:
     needs: [fix-rust, fix-npm]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Push all fixes
         run: git push origin main
