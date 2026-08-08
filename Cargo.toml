@@ -41,7 +41,7 @@ deadpool-redis = { version = "0.15" }
 redis = { version = "0.25", features = ["tokio-comp", "connection-manager"] }
 
 # Auth & Crypto
-jsonwebtoken = "9.3"
+jsonwebtoken = "9.4"
 argon2 = "0.5"
 rand = "0.8"
 sha2 = "0.10"
@@ -82,3 +82,7 @@ raksha-threat-intel = { path = "crates/raksha-threat-intel" }
 raksha-siem = { path = "crates/raksha-siem" }
 raksha-incident = { path = "crates/raksha-incident" }
 raksha-grc = { path = "crates/raksha-grc" }
+
+# Patch vulnerable dependencies
+[patch.crates-io]
+idna = { git = "https://github.com/servo/rust-url", branch = "main" }
