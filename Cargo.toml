@@ -41,7 +41,7 @@ deadpool-redis = { version = "0.15" }
 redis = { version = "0.25", features = ["tokio-comp", "connection-manager"] }
 
 # Auth & Crypto
-jsonwebtoken = "9.4"
+jsonwebtoken = "11.0"
 argon2 = "0.5"
 rand = "0.8"
 sha2 = "0.10"
