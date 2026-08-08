@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/dansiapa/raksha-security-platform/releases/tag/v1.2.1"><img src="https://img.shields.io/badge/version-1.2.1-blue?style=for-the-badge" alt="Version"/></a>
+  <a href="https://github.com/dansiapa/raksha-security-platform/releases/tag/v1.3.0"><img src="https://img.shields.io/badge/version-1.3.0-blue?style=for-the-badge" alt="Version"/></a>
   <a href="#features"><img src="https://img.shields.io/badge/status-active-brightgreen?style=for-the-badge" alt="Status"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="License"/></a>
   <a href="#nawala-ecosystem"><img src="https://img.shields.io/badge/ecosystem-Nawala-orange?style=for-the-badge" alt="Nawala"/></a>
@@ -263,7 +263,25 @@ Each organization deploys its **own independent Raksha portal** — no shared in
 
 ## Quick Start
 
-### Docker (Recommended)
+```bash
+git clone https://github.com/dansiapa/raksha-security-platform.git
+cd raksha-security-platform
+cargo run -p raksha-installer
+```
+
+Open **http://localhost:3000** → Follow the wizard → Done! 🎉
+
+The Installation Wizard will:
+- ✅ Check system requirements
+- ✅ Configure database connection
+- ✅ Create your SuperAdmin account
+- ✅ Generate secure secrets automatically
+
+> **Alternative methods:** See [INSTALLATION.md](INSTALLATION.md) for Docker, Docker Compose, or manual installation.
+
+---
+
+### Docker (Alternative)
 
 ```bash
 docker run -d \
