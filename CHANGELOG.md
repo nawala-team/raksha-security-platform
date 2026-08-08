@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2026-08-08
+
+### Added
+
+#### Installation Wizard
+- **New**: Web-based installation wizard (`apps/installer`)
+- Setup wizard with step-by-step configuration
+- Automatic database connection testing
+- SuperAdmin account creation during setup
+- Secure JWT secret auto-generation
+- Password hashing with Argon2
+
+### Security
+
+#### Hardcoded Secrets Removal
+- **config/default.toml**: Removed hardcoded JWT secret and database credentials
+- **docker-compose.yml**: Changed to use environment variables only
+- **scripts/install-portal.sh**: Removed hardcoded passwords
+- **scripts/install-portal.ps1**: Removed hardcoded passwords
+- **.env.example**: Added security warnings and placeholder instructions
+
+#### Code Quality
+- **raksha-alert/engine.rs**: Replaced runtime `unwrap()` with lazy static regex
+- **raksha-grc/handlers.rs**: Fixed 8x `serde_json::to_value().unwrap()` calls
+- Added `once_cell` dependency for thread-safe lazy initialization
+
+### Changed
+- Bumped version to 1.3.0 across all packages
+- Updated README with Installation Wizard section
+
+---
+
 ## [1.2.1] - 2026-08-05
 
 ### Fixed
