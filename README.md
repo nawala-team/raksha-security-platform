@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/dansiapa/raksha-security-platform/releases/tag/v1.3.0"><img src="https://img.shields.io/badge/version-1.3.0-blue?style=for-the-badge" alt="Version"/></a>
+  <a href="https://github.com/nawala-team/raksha-security-platform/releases/tag/v1.3.0"><img src="https://img.shields.io/badge/version-1.3.0-blue?style=for-the-badge" alt="Version"/></a>
   <a href="#features"><img src="https://img.shields.io/badge/status-active-brightgreen?style=for-the-badge" alt="Status"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="License"/></a>
   <a href="#nawala-ecosystem"><img src="https://img.shields.io/badge/ecosystem-Nawala-orange?style=for-the-badge" alt="Nawala"/></a>
@@ -36,7 +36,7 @@
 
 **Raksha** (रक्षा) — from Sanskrit, meaning *protection* or *guardian* — is a full-stack security monitoring platform that provides real-time infrastructure protection, compliance auditing, and ML-powered threat detection across your entire stack.
 
-Part of the [Nawala Ecosystem](https://github.com/dansiapa/nawala-gateway-platform) — a suite of open-source security and infrastructure tools built by the **NAWALA TEAM** in Indonesia.
+Part of the [Nawala Ecosystem](https://github.com/nawala-team/nawala-gateway-platform) — a suite of open-source security and infrastructure tools built by the **NAWALA TEAM** in Indonesia.
 
 ---
 
@@ -264,7 +264,7 @@ Each organization deploys its **own independent Raksha portal** — no shared in
 ## Quick Start
 
 ```bash
-git clone https://github.com/dansiapa/raksha-security-platform.git
+git clone https://github.com/nawala-team/raksha-security-platform.git
 cd raksha-security-platform
 cargo run -p raksha-installer
 ```
@@ -289,13 +289,13 @@ docker run -d \
   -p 8080:8080 \
   -p 9090:9090 \
   -v raksha-data:/var/lib/raksha \
-  ghcr.io/dansiapa/raksha:latest
+  ghcr.io/nawala-team/raksha:latest
 ```
 
 ### Docker Compose
 
 ```bash
-git clone https://github.com/dansiapa/raksha-security-platform.git
+git clone https://github.com/nawala-team/raksha-security-platform.git
 cd raksha-security-platform
 docker compose up -d
 ```
@@ -307,7 +307,7 @@ summary for bare-metal / Termux:
 
 ```bash
 # Prerequisites: Rust 1.75+, Node.js 20+, PostgreSQL 13+, Redis 6+
-git clone https://github.com/dansiapa/raksha-security-platform.git
+git clone https://github.com/nawala-team/raksha-security-platform.git
 cd raksha-security-platform
 cp .env.example .env           # set DB URL, Redis URL, JWT secret
 
@@ -474,7 +474,7 @@ This is a **fully open-source** project -- free for personal, commercial, and en
 </p>
 
 <p align="center">
-  <sub>Part of the <a href="https://github.com/dansiapa/nawala-gateway-platform">Nawala Ecosystem</a> -- Sanskrit-inspired tools for modern infrastructure</sub>
+  <sub>Part of the <a href="https://github.com/nawala-team/nawala-gateway-platform">Nawala Ecosystem</a> -- Sanskrit-inspired tools for modern infrastructure</sub>
 </p>
 
 <p align="center">
