@@ -83,6 +83,6 @@ raksha-siem = { path = "crates/raksha-siem" }
 raksha-incident = { path = "crates/raksha-incident" }
 raksha-grc = { path = "crates/raksha-grc" }
 
-# Patch vulnerable dependencies
-[patch.crates-io]
-idna = { git = "https://github.com/servo/rust-url", branch = "main" }
+
+# Force updated dependencies
+idna = "1.1.1"
