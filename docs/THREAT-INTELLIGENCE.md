@@ -1,4 +1,4 @@
-# 🔱 Threat Intelligence
+#  Threat Intelligence
 
 > Automated IOC feed synchronization and real-time correlation
 

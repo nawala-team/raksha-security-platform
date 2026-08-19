@@ -96,12 +96,12 @@ ci: add helm chart linting to pipeline
 
 The `main` branch enforces:
 
-- ✅ Pull request required (no direct push)
-- ✅ At least 1 approving review
-- ✅ All CI status checks must pass
-- ✅ Branch must be up to date before merge
-- ✅ Dismiss stale reviews on new commits
-- ✅ Enforce rules for administrators
+- [x] Pull request required (no direct push)
+- [x] At least 1 approving review
+- [x] All CI status checks must pass
+- [x] Branch must be up to date before merge
+- [x] Dismiss stale reviews on new commits
+- [x] Enforce rules for administrators
 
 ## Team Assignments
 
@@ -117,4 +117,4 @@ The `main` branch enforces:
 
 ---
 
-*Part of the Nawala Ecosystem* 🔱
+*Part of the Nawala Ecosystem* 

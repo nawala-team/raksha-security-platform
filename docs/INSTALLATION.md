@@ -1,4 +1,4 @@
-# 🔱 Raksha Installation Guide
+#  Raksha Installation Guide
 
 > Detailed setup instructions for all platforms
 
@@ -242,7 +242,7 @@ cargo build --release
 
 ---
 
-*Part of the Nawala Ecosystem* 🔱
+*Part of the Nawala Ecosystem* 
 
 ## Agent Installation
 

@@ -1,4 +1,4 @@
-# 🔱 Contributing to Raksha Security Platform
+#  Contributing to Raksha Security Platform
 
 Thank you for your interest in contributing to Raksha! This document provides guidelines and instructions for contributing.
 
@@ -124,6 +124,6 @@ Aim for 80%+ code coverage. Write unit tests for all public functions and integr
 
 ---
 
-Thank you for contributing to Raksha! 🔱
+Thank you for contributing to Raksha! 
 
-— **NAWALA TEAM** 🇮🇩
+— **NAWALA TEAM** 

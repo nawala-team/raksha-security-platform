@@ -1,4 +1,4 @@
-# 🔱 Raksha Architecture
+#  Raksha Architecture
 
 > System design and component overview for the Raksha Security Platform
 
@@ -188,4 +188,4 @@ raksha-security-platform/
 
 ---
 
-*Part of the Nawala Ecosystem* 🔱
+*Part of the Nawala Ecosystem* 

@@ -1,4 +1,4 @@
-# 🔱 Raksha API Documentation
+#  Raksha API Documentation
 
 > REST and GraphQL API reference for the Raksha Security Platform
 
@@ -202,4 +202,4 @@ ws.send(JSON.stringify({ subscribe: ['alerts', 'metrics'] }));
 
 ---
 
-*Part of the Nawala Ecosystem* 🔱
+*Part of the Nawala Ecosystem* 

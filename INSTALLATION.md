@@ -508,7 +508,7 @@ For development/testing, seed accounts are available:
 | Operator     | `operator@raksha.local`     | `RakshaOperator!2026`|
 | Viewer       | `viewer@raksha.local`       | `RakshaViewer!2026` |
 
-> ⚠️ **Change these passwords immediately in production!**
+> [!]️ **Change these passwords immediately in production!**
 
 ---
 
@@ -579,7 +579,7 @@ docker compose logs --tail=100 portal
 ### Reset Database
 
 ```sh
-# ⚠️ This deletes all data!
+# [!]️ This deletes all data!
 docker compose down -v
 docker compose up -d --build
 ```
@@ -625,9 +625,9 @@ helm upgrade raksha raksha/raksha-platform --namespace raksha
 
 ## Support
 
-- 📖 [Documentation](docs/)
-- 🐛 [Issue Tracker](https://github.com/dansiapa/raksha-security-platform/issues)
-- 📧 Contact: dummymailrangga@gmail.com
+- * [Documentation](docs/)
+- * [Issue Tracker](https://github.com/dansiapa/raksha-security-platform/issues)
+- * Contact: dummymailrangga@gmail.com
 
 ---
 

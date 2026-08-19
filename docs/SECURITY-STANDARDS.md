@@ -1,4 +1,4 @@
-# 🔱 Raksha Security Standards
+#  Raksha Security Standards
 
 > Supported compliance frameworks and security standards
 
@@ -153,4 +153,4 @@ Evidence is stored with cryptographic integrity verification and can be exported
 
 ---
 
-*Part of the Nawala Ecosystem* 🔱
+*Part of the Nawala Ecosystem* 

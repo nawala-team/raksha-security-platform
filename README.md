@@ -50,50 +50,39 @@ Part of the [Nawala Ecosystem](https://github.com/nawala-team/nawala-gateway-pla
 
 ## Features
 
-<table>
-  <tr>
-    <td align="center" width="25%"><strong>🖥️ Server Monitor</strong><br/><sub>Real-time server health, resource utilization, and anomaly detection</sub></td>
-    <td align="center" width="25%"><strong>🌐 Network Scanner</strong><br/><sub>Port scanning, vulnerability assessment, and topology mapping</sub></td>
-    <td align="center" width="25%"><strong>🗄️ Database Guard</strong><br/><sub>Multi-DB security: PostgreSQL, MySQL, MongoDB, Oracle, Redis, MariaDB, SQL Server</sub></td>
-    <td align="center" width="25%"><strong>📋 Compliance Engine</strong><br/><sub>Automated checks against CIS, NIST, PCI-DSS, ISO 27001</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>🤖 ML Threat Detection</strong><br/><sub>Isolation Forest, CNN, LSTM models for anomaly and prediction</sub></td>
-    <td align="center"><strong>🌍 Threat Intelligence</strong><br/><sub>Auto-syncing IOC feeds from CISA, MITRE, Abuse.ch, OTX, NVD</sub></td>
-    <td align="center"><strong>📝 Audit Trail</strong><br/><sub>Immutable logging with SHA3-256 cryptographic verification</sub></td>
-    <td align="center"><strong>🔔 Real-time Alerts</strong><br/><sub>WebSocket + Email + Telegram + Webhook notifications</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>👥 User Management</strong><br/><sub>RBAC with Admin, Analyst, Operator, Viewer roles + MFA</sub></td>
-    <td align="center"><strong>🕵️ Agent System</strong><br/><sub>Cross-platform agents with mTLS enrollment and FIM</sub></td>
-    <td align="center"><strong>📁 File Integrity</strong><br/><sub>Real-time file change detection, hash verification, policy rules</sub></td>
-    <td align="center"><strong>📊 Dashboard</strong><br/><sub>Interactive security posture overview with live metrics</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>🚨 Incident Response</strong><br/><sub>YAML playbooks, lifecycle management, auto-escalation, timeline</sub></td>
-    <td align="center"><strong>🔍 Vulnerability Scanner</strong><br/><sub>NVD/CVE sync, CVSS scoring, package parser for 6+ ecosystems</sub></td>
-    <td align="center"><strong>🎯 Attack Surface</strong><br/><sub>Subdomain enumeration, port scanning, exposure scoring</sub></td>
-    <td align="center"><strong>🐳 Container Security</strong><br/><sub>K8s admission webhook, image scanning, runtime alerts</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>🏛️ GRC Module</strong><br/><sub>Risk register, policy management, control mapping to frameworks</sub></td>
-    <td align="center"><strong>🕸️ Dark Web Monitor</strong><br/><sub>Credential leak detection, paste monitoring, domain watchlist</sub></td>
-    <td align="center"><strong>🍯 Honeypots</strong><br/><sub>SSH, HTTP, SMTP, MySQL deception with zero false-positive alerts</sub></td>
-    <td align="center"><strong>💾 Backup Verification</strong><br/><sub>Integrity checks, freshness alerts, RPO/RTO compliance</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>🔗 SIEM Integration</strong><br/><sub>Splunk, Elasticsearch, Graylog, Wazuh with CEF/LEEF/Syslog</sub></td>
-    <td align="center"><strong>🏢 Multi-Tenancy</strong><br/><sub>Full tenant isolation, per-tenant RBAC, superadmin management</sub></td>
-    <td align="center"><strong>🔎 Threat Hunting</strong><br/><sub>RQL query language, saved queries, scheduled hunts</sub></td>
-    <td align="center"><strong>🛡️ API Gateway</strong><br/><sub>WAF, rate limiting, bot detection, payload inspection</sub></td>
-  </tr>
-</table>
+<p align="center">
+  <img src="assets/svg/features-row1.svg" alt="Features Row 1" width="100%"/>
+</p>
+
+<p align="center">
+  <img src="assets/svg/features-row2.svg" alt="Features Row 2" width="100%"/>
+</p>
+
+<p align="center">
+  <img src="assets/svg/features-row3.svg" alt="Features Row 3" width="100%"/>
+</p>
+
+<p align="center">
+  <img src="assets/svg/features-row3b.svg" alt="Features Row 3b" width="50%"/>
+</p>
+
+<p align="center">
+  <img src="assets/svg/features-row4.svg" alt="Features Row 4" width="100%"/>
+</p>
+
+<p align="center">
+  <img src="assets/svg/features-row5.svg" alt="Features Row 5" width="100%"/>
+</p>
+
+<p align="center">
+  <img src="assets/svg/features-row6.svg" alt="Features Row 6" width="100%"/>
+</p>
 
 ---
 
 ## Feature Status
 
-✅ **Production Ready** — All features are fully implemented and tested.
+[x] **Production Ready** — All features are fully implemented and tested.
 
 | Category | Features |
 |----------|----------|
@@ -269,13 +258,13 @@ cd raksha-security-platform
 cargo run -p raksha-installer
 ```
 
-Open **http://localhost:3000** → Follow the wizard → Done! 🎉
+Open **http://localhost:3000** → Follow the wizard → Done! 
 
 The Installation Wizard will:
-- ✅ Check system requirements
-- ✅ Configure database connection
-- ✅ Create your SuperAdmin account
-- ✅ Generate secure secrets automatically
+- [x] Check system requirements
+- [x] Configure database connection
+- [x] Create your SuperAdmin account
+- [x] Generate secure secrets automatically
 
 > **Alternative methods:** See [INSTALLATION.md](INSTALLATION.md) for Docker, Docker Compose, or manual installation.
 

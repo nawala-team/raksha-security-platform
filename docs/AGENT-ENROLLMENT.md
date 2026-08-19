@@ -10,11 +10,11 @@ Only **Admin** and **SuperAdmin** roles can generate enrollment tokens.
 
 | Role | Generate Token | View Agents | Revoke Token | Rotate Certificate |
 |------|:-:|:-:|:-:|:-:|
-| SuperAdmin | ✅ | ✅ | ✅ | ✅ |
-| Admin | ✅ | ✅ | ✅ | ✅ |
-| Operator | ❌ | ✅ | ❌ | ❌ |
-| Analyst | ❌ | ✅ | ❌ | ❌ |
-| Viewer | ❌ | ✅ | ❌ | ❌ |
+| SuperAdmin | [x] | [x] | [x] | [x] |
+| Admin | [x] | [x] | [x] | [x] |
+| Operator | [ ] | [x] | [ ] | [ ] |
+| Analyst | [ ] | [x] | [ ] | [ ] |
+| Viewer | [ ] | [x] | [ ] | [ ] |
 
 ## Installation Flow (Step by Step)
 
@@ -240,4 +240,4 @@ Authorization: Bearer <admin_token> | mTLS client cert
 
 ---
 
-*Part of the Nawala Ecosystem* 🔱
+*Part of the Nawala Ecosystem* 
